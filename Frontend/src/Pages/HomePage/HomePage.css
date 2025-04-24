@@ -1,0 +1,11 @@
+/* src/Pages/HomePage/HomePage.css */
+body {
+  background: #f0f8ff;
+}
+
+h1 span {
+  color: #007bff;
+}
+ .whole{
+  height: 82vh;
+ }
