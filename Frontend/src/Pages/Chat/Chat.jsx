@@ -213,7 +213,13 @@ const Chat = ({ logOut }) => {
                 }`}
                 style={{ maxWidth: "60%" }}
               >
-                <div className="fw-bold">{m.sender}</div>
+                <div
+                  className="fw-bold"
+                  style={{ cursor: "pointer", textDecoration: "underline" }}
+                  onClick={() => handleSelectUser({ user_name: m.sender })}
+                >
+                  {m.sender}
+                </div>
                 {m.isFile ? (
                   m.content.match(/\.(jpeg|jpg|png|gif)$/i) ? (
                     <img
