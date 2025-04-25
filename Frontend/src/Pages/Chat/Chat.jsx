@@ -3,12 +3,11 @@ import { io } from "socket.io-client";
 import axios from "axios";
 import { userProvider } from "../../Context/UserProvider";
 import UserSidebar from "../../Components/UserSideBar/UserSideBar";
-import { FaSearch } from "react-icons/fa";
+import { FaSearch, FaSignOutAlt, FaPaperclip } from "react-icons/fa";
 import "./Chat.css";
 
 const socket = io("http://localhost:5000");
-const publicVapidKey =
-  "BN9z5P4ghBqZsE7OzpeFHOAS5gMTAiE3a1PGipArRb9bGRaXnTZ2AgUKxf2yOGrwVMVX94LzMO5WxvzmpKB4PAA"; // Replace this with your real key
+const publicVapidKey = "YOUR_PUBLIC_VAPID_KEY"; // Replace with your real key
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -21,6 +20,7 @@ const Chat = ({ logOut }) => {
   const [user] = useContext(userProvider);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [file, setFile] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [typingUser, setTypingUser] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -75,16 +75,41 @@ const Chat = ({ logOut }) => {
   }, []);
 
   const handleSend = async () => {
-    if (!input.trim() || !selectedUser?.user_name) return;
-    const msg = {
-      sender: user.user_name,
-      receiver: selectedUser.user_name,
-      content: input,
-    };
-    socket.emit("send_message", msg);
-    await axios.post("http://localhost:5000/api/messages", msg, {
-      withCredentials: true,
-    });
+    if (!input.trim() && !file) return;
+    if (!selectedUser?.user_name) return;
+
+    if (file) {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("sender", user.user_name);
+      formData.append("receiver", selectedUser.user_name);
+
+      const res = await axios.post(
+        "http://localhost:5000/api/messages/file",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+          withCredentials: true,
+        }
+      );
+
+      const msg = res.data;
+      socket.emit("send_message", msg);
+      setMessages((prev) => [...prev, msg]);
+      setFile(null);
+    } else {
+      const msg = {
+        sender: user.user_name,
+        receiver: selectedUser.user_name,
+        content: input,
+      };
+      socket.emit("send_message", msg);
+      await axios.post("http://localhost:5000/api/messages", msg, {
+        withCredentials: true,
+      });
+      setMessages((prev) => [...prev, msg]);
+    }
+
     setInput("");
   };
 
@@ -114,7 +139,6 @@ const Chat = ({ logOut }) => {
 
   return (
     <div className="container-fluid vh-100 d-flex flex-column flex-md-row">
-      {/* Sidebar for Desktop */}
       <div
         className="d-none d-md-block bg-light border-end"
         style={{ width: "250px" }}
@@ -126,7 +150,6 @@ const Chat = ({ logOut }) => {
         />
       </div>
 
-      {/* Offcanvas for Mobile */}
       <div className="d-md-none">
         <div
           className="offcanvas offcanvas-start"
@@ -151,7 +174,6 @@ const Chat = ({ logOut }) => {
         </div>
       </div>
 
-      {/* Main Chat */}
       <div className="flex-grow-1 d-flex flex-column">
         <div className="d-flex justify-content-between align-items-center p-3 border-bottom bg-white">
           <h5>
@@ -159,22 +181,19 @@ const Chat = ({ logOut }) => {
               ? `Chatting with: ${selectedUser.user_name}`
               : "Select a user to start chatting"}
           </h5>
-          <button className="btn btn-danger" onClick={logOut}>
-            Logout
-          </button>
-        </div>
-        <div
-          className="d-md-none position-fixed top-0 start-0 m-3 zindex-tooltip"
-          style={{ marginTop: "60px" }}
-        >
-          <button
-            className="btn btn-outline-secondary"
-            type="button"
-            data-bs-toggle="offcanvas"
-            data-bs-target="#sidebarOffcanvas"
-          >
-            <FaSearch />
-          </button>
+          <div className="d-flex gap-2">
+            <button
+              className="btn btn-outline-secondary d-md-none"
+              type="button"
+              data-bs-toggle="offcanvas"
+              data-bs-target="#sidebarOffcanvas"
+            >
+              <FaSearch />
+            </button>
+            <button className="btn btn-outline-danger" onClick={logOut}>
+              <FaSignOutAlt />
+            </button>
+          </div>
         </div>
         <div className="flex-grow-1 overflow-auto p-3 bg-white">
           {messages.map((m, i) => (
@@ -195,7 +214,25 @@ const Chat = ({ logOut }) => {
                 style={{ maxWidth: "60%" }}
               >
                 <div className="fw-bold">{m.sender}</div>
-                <div>{m.content}</div>
+                {m.isFile ? (
+                  m.content.match(/\.(jpeg|jpg|png|gif)$/i) ? (
+                    <img
+                      src={`http://localhost:5000${m.content}`}
+                      alt="uploaded"
+                      style={{ maxWidth: "100%", borderRadius: "5px" }}
+                    />
+                  ) : (
+                    <a
+                      href={`http://localhost:5000${m.content}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View File
+                    </a>
+                  )
+                ) : (
+                  <div>{m.content}</div>
+                )}
                 <div className="text-end small">
                   {m.createdAt
                     ? new Date(m.createdAt).toLocaleTimeString()
@@ -210,7 +247,16 @@ const Chat = ({ logOut }) => {
             </div>
           )}
         </div>
-        <div className="d-flex p-3 border-top bg-white">
+        <div className="d-flex p-3 border-top bg-white align-items-center">
+          <input
+            type="file"
+            id="fileInput"
+            style={{ display: "none" }}
+            onChange={(e) => setFile(e.target.files[0])}
+          />
+          <label htmlFor="fileInput" className="btn btn-outline-secondary me-2">
+            <FaPaperclip />
+          </label>
           <input
             className="form-control me-2"
             value={input}

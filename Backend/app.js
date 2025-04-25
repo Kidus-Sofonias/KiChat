@@ -51,6 +51,7 @@ app.get("/", (req, res) => {
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/messages", authMiddleware, messageRoutes);
+app.use("/uploads", express.static("uploads"));
 
 // Push Notifications Setup
 const publicVapidKey = "BN9z5P4ghBqZsE7OzpeFHOAS5gMTAiE3a1PGipArRb9bGRaXnTZ2AgUKxf2yOGrwVMVX94LzMO5WxvzmpKB4PAA";

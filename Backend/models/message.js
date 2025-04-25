@@ -8,17 +8,21 @@ const Message = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    content: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-    },
     receiver: {
       type: DataTypes.STRING,
       allowNull: false,
     },
+    content: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+    },
+    isFile: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
   },
   {
-    timestamps: true, // adds createdAt/updatedAt
+    timestamps: true,
   }
 );
 
