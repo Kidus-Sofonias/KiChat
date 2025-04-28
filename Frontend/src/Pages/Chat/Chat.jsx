@@ -9,7 +9,7 @@ import "./Chat.css";
 const token = localStorage.getItem("token");
 
 // ✅ Pass JWT token when initializing Socket.io
-const socket = io("http://localhost:5000", {
+const socket = io("https://kichat.onrender.com", {
   auth: { token },
 });
 
@@ -240,13 +240,13 @@ const Chat = ({ logOut }) => {
                 {m.isFile ? (
                   m.content.match(/\.(jpeg|jpg|png|gif)$/i) ? (
                     <img
-                      src={`http://localhost:5000${m.content}`}
+                      src={`https://kichat.onrender.com${m.content}`}
                       alt="uploaded"
                       style={{ maxWidth: "100%", borderRadius: "5px" }}
                     />
                   ) : (
                     <a
-                      href={`http://localhost:5000${m.content}`}
+                      href={`https://kichat.onrender.com${m.content}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
