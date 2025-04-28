@@ -25,14 +25,8 @@ const SignUp = () => {
         password: data.password,
       });
 
-      const { token, user_name, user_id } = res.data;
-      const userObj = { user_name, user_id };
-
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(userObj));
-      setUser(userObj);
-
-      navigate("/chat"); // or /home
+      alert("Registration successful. Please log in.");
+      navigate("/signin");
     } catch (err) {
       alert("Signup failed. Please try again.");
       console.error(err);

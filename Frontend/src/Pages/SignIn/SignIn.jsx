@@ -26,17 +26,16 @@ function SignIn() {
   async function logIn(data) {
     setLoading(true);
     try {
-      const response = await axios.post(
-        "/api/users/login",
-        {
-          user_name: data.username,
-          password: data.password,
-        },
-        { withCredentials: true }
-      ); // ⬅️ IMPORTANT
+      const response = await axios.post("/api/users/login", {
+        user_name: data.username,
+        password: data.password,
+      });
 
-      const userObj = response.data.user;
-      localStorage.setItem("user", JSON.stringify(userObj));
+      const { token, user_name, user_id } = response.data;
+
+      const userObj = { user_name, user_id };
+      localStorage.setItem("token", token); // Save JWT
+      localStorage.setItem("user", JSON.stringify(userObj)); // Optional
       setUser(userObj);
 
       navigate("/chat");

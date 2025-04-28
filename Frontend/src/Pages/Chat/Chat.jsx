@@ -1,13 +1,20 @@
 import { useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import axios from "axios";
+import axios from "../../Components/axios"; // Make sure axios has baseURL
 import { userProvider } from "../../Context/UserProvider";
 import UserSidebar from "../../Components/UserSideBar/UserSideBar";
 import { FaSearch, FaSignOutAlt, FaPaperclip } from "react-icons/fa";
 import "./Chat.css";
 
-const socket = io("http://localhost:5000");
-const publicVapidKey = "YOUR_PUBLIC_VAPID_KEY"; // Replace with your real key
+const token = localStorage.getItem("token");
+
+// ✅ Pass JWT token when initializing Socket.io
+const socket = io("http://localhost:5000", {
+  auth: { token },
+});
+
+const publicVapidKey =
+  "BN9z5P4ghBqZsE7OzpeFHOAS5gMTAiE3a1PGipArRb9bGRaXnTZ2AgUKxf2yOGrwVMVX94LzMO5WxvzmpKB4PAA";
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -26,33 +33,39 @@ const Chat = ({ logOut }) => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [recentUsers, setRecentUsers] = useState([]);
 
+  // ✅ Fetch recent users
   useEffect(() => {
     axios
-      .get(`http://localhost:5000/api/messages/recent/${user.user_name}`)
+      .get(`/api/messages/recent/${user.user_name}`)
       .then((res) => setRecentUsers(res.data))
       .catch(console.error);
   }, [user]);
 
+  // ✅ Fetch chat history with selected user
   useEffect(() => {
     if (!selectedUser) return;
     axios
       .get(
-        `http://localhost:5000/api/messages/between?senderId=${user.user_name}&receiverId=${selectedUser.user_name}`,
-        { withCredentials: true }
+        `/api/messages/between?senderId=${user.user_name}&receiverId=${selectedUser.user_name}`
       )
       .then((res) => setMessages(res.data))
       .catch(console.error);
   }, [selectedUser]);
 
+  // ✅ Setup socket listeners
   useEffect(() => {
     socket.on("receive_message", (data) => {
       setMessages((prev) => [...prev, data]);
     });
+
     socket.on("typing", (username) => setTypingUser(username));
     socket.on("stop_typing", () => setTypingUser(null));
+
     return () => socket.off("receive_message");
   }, []);
 
+
+  // ✅ Setup push notifications
   useEffect(() => {
     if ("serviceWorker" in navigator && "PushManager" in window) {
       navigator.serviceWorker
@@ -64,9 +77,7 @@ const Chat = ({ logOut }) => {
           });
         })
         .then((subscription) => {
-          fetch("http://localhost:5000/api/subscribe", {
-            method: "POST",
-            body: JSON.stringify(subscription),
+          axios.post("/api/subscribe", subscription, {
             headers: { "Content-Type": "application/json" },
           });
         })
@@ -74,9 +85,12 @@ const Chat = ({ logOut }) => {
     }
   }, []);
 
+  // ✅ Send a message
   const handleSend = async () => {
     if (!input.trim() && !file) return;
     if (!selectedUser?.user_name) return;
+
+    let msg;
 
     if (file) {
       const formData = new FormData();
@@ -84,37 +98,35 @@ const Chat = ({ logOut }) => {
       formData.append("sender", user.user_name);
       formData.append("receiver", selectedUser.user_name);
 
-      const res = await axios.post(
-        "http://localhost:5000/api/messages/file",
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-          withCredentials: true,
-        }
-      );
+      const res = await axios.post("/api/messages/file", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
-      const msg = res.data;
-      socket.emit("send_message", msg);
-      setMessages((prev) => [...prev, msg]);
-      setFile(null);
+      msg = res.data;
     } else {
-      const msg = {
+      const messagePayload = {
         sender: user.user_name,
         receiver: selectedUser.user_name,
         content: input,
       };
-      socket.emit("send_message", msg);
-      await axios.post("http://localhost:5000/api/messages", msg, {
-        withCredentials: true,
-      });
-      setMessages((prev) => [...prev, msg]);
+
+      const res = await axios.post("/api/messages", messagePayload);
+      msg = res.data;
     }
 
+    // 🔥 Only emit after backend confirmation
+    socket.emit("send_message", msg);
+
+    // 🔥 Do NOT setMessages here. Wait for real-time 'receive_message' event.
+
     setInput("");
+    setFile(null);
   };
 
+
+  // ✅ Handle typing indicator
   const handleTyping = () => {
-    socket.emit("typing", user.username);
+    socket.emit("typing", user.user_name);
     if (!isTyping) {
       setIsTyping(true);
       setTimeout(() => {
@@ -124,6 +136,7 @@ const Chat = ({ logOut }) => {
     }
   };
 
+  // ✅ Select a user to chat with
   const handleSelectUser = (u) => {
     setSelectedUser(u);
     setRecentUsers((prev) =>
@@ -139,6 +152,7 @@ const Chat = ({ logOut }) => {
 
   return (
     <div className="container-fluid vh-100 d-flex flex-column flex-md-row">
+      {/* Sidebar */}
       <div
         className="d-none d-md-block bg-light border-end"
         style={{ width: "250px" }}
@@ -150,6 +164,7 @@ const Chat = ({ logOut }) => {
         />
       </div>
 
+      {/* Offcanvas for mobile */}
       <div className="d-md-none">
         <div
           className="offcanvas offcanvas-start"
@@ -174,6 +189,7 @@ const Chat = ({ logOut }) => {
         </div>
       </div>
 
+      {/* Chat Window */}
       <div className="flex-grow-1 d-flex flex-column">
         <div className="d-flex justify-content-between align-items-center p-3 border-bottom bg-white">
           <h5>
@@ -195,6 +211,7 @@ const Chat = ({ logOut }) => {
             </button>
           </div>
         </div>
+
         <div className="flex-grow-1 overflow-auto p-3 bg-white">
           {messages.map((m, i) => (
             <div
@@ -253,6 +270,8 @@ const Chat = ({ logOut }) => {
             </div>
           )}
         </div>
+
+        {/* Input Section */}
         <div className="d-flex p-3 border-top bg-white align-items-center">
           <input
             type="file"

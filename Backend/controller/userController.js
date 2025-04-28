@@ -1,8 +1,10 @@
 const bcrypt = require("bcrypt");
 const { StatusCodes } = require("http-status-codes");
 const { Op } = require("sequelize");
+const jwt = require("jsonwebtoken"); // 🔥 JWT for auth
 const User = require("../models/user");
 
+// ✅ Register User
 async function register(req, res) {
   const { user_name, password } = req.body;
 
@@ -44,6 +46,7 @@ async function register(req, res) {
   }
 }
 
+// ✅ Login User (Using JWT)
 async function login(req, res) {
   const { user_name, password } = req.body;
 
@@ -59,18 +62,21 @@ async function login(req, res) {
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res
         .status(StatusCodes.UNAUTHORIZED)
-        .json({ msg: "Invalid email or password" });
+        .json({ msg: "Invalid username or password" });
     }
 
-    // Set session
-    req.session.user = {
-      user_id: user.user_id,
-      user_name: user.user_name,
-    };
+    // 🔥 Generate JWT
+    const token = jwt.sign(
+      { user_id: user.user_id, user_name: user.user_name },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
 
     return res.status(StatusCodes.OK).json({
       msg: "User login successful",
-      user: req.session.user,
+      user_name: user.user_name,
+      user_id: user.user_id,
+      token,
     });
   } catch (error) {
     console.error("Login error:", error.message);
@@ -80,19 +86,34 @@ async function login(req, res) {
   }
 }
 
+// ✅ Check Authenticated User
 async function checkUser(req, res) {
-  if (!req.session.user) {
-    return res
-      .status(StatusCodes.UNAUTHORIZED)
-      .json({ msg: "Not authenticated" });
-  }
+  const { user_id } = req.user;
 
-  return res.status(StatusCodes.OK).json({
-    msg: "Valid user",
-    user: req.session.user,
-  });
+  try {
+    const user = await User.findOne({
+      where: { user_id },
+      attributes: ["user_id", "user_name"],
+    });
+
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({ msg: "User not found" });
+    }
+
+    return res.status(StatusCodes.OK).json({
+      msg: "Valid user",
+      user_id: user.user_id,
+      user_name: user.user_name,
+    });
+  } catch (error) {
+    console.error("CheckUser error:", error.message);
+    return res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ msg: "Error verifying user" });
+  }
 }
 
+// ✅ Get All Users Except Current
 async function getAllUsers(req, res) {
   const currentUserId = req.user.user_id;
   console.log("Fetching users, currentUserId:", currentUserId);

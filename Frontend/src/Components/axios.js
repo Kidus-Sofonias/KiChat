@@ -1,17 +1,15 @@
 import axios from "axios";
 
-const axiosBase = axios.create({
-  baseURL: "http://localhost:5000/",
-  withCredentials: true, // needed for sessions
+const instance = axios.create({
+  baseURL: "http://localhost:5000",
 });
 
-// Optional: log API response errors
-axiosBase.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error("API Error:", error.response?.data);
-    return Promise.reject(error);
+instance.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
-);
+  return config;
+});
 
-export default axiosBase;
+export default instance;

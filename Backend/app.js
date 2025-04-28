@@ -2,60 +2,65 @@ const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const session = require("express-session");
 const { Server } = require("socket.io");
 const webpush = require("web-push");
+const jwt = require("jsonwebtoken");
 
 const userRoutes = require("./routes/userRoute");
 const messageRoutes = require("./routes/messageRoute");
 const db = require("./db/config");
-const User = require("./models/user");
-const Message = require("./models/message");
-const authMiddleware = require("./middleWare/authMiddleware");
+const jwtMiddleware = require("./middleWare/authMiddleware");
 
+// Load environment variables
 dotenv.config();
 
+// Initialize Express and HTTP server
 const app = express();
 const server = http.createServer(app);
 
+// Initialize Socket.io
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: "http://localhost:5173", // Change this to your frontend URL in production
     methods: ["GET", "POST"],
-    credentials: true,
   },
+});
+
+// JWT Middleware for Socket.io Authentication
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) {
+    return next(new Error("Authentication error: Token missing"));
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.user = decoded;
+    next();
+  } catch (err) {
+    return next(new Error("Authentication error: Invalid token"));
+  }
 });
 
 // Middleware
 app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 app.use(express.json());
 
-// Session Middleware
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "mysecret",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
-    },
-  })
-);
-
-// Root route to show server is running
+// Routes
 app.get("/", (req, res) => {
   res.send("🚀 Server is up and running!");
 });
-
-// Routes
 app.use("/api/users", userRoutes);
-app.use("/api/messages", authMiddleware, messageRoutes);
+app.use("/api/messages", jwtMiddleware, messageRoutes);
 app.use("/uploads", express.static("uploads"));
 
 // Push Notifications Setup
-const publicVapidKey = "BN9z5P4ghBqZsE7OzpeFHOAS5gMTAiE3a1PGipArRb9bGRaXnTZ2AgUKxf2yOGrwVMVX94LzMO5WxvzmpKB4PAA";
-const privateVapidKey = "VuxysoWpQQxOVN22TMAgR4TGTWFT8qu8YFMUrWsrPhs";
+const publicVapidKey =
+  process.env.VAPID_PUBLIC_KEY ||
+  "BN9z5P4ghBqZsE7OzpeFHOAS5gMTAiE3a1PGipArRb9bGRaXnTZ2AgUKxf2yOGrwVMVX94LzMO5WxvzmpKB4PAA";
+const privateVapidKey =
+  process.env.VAPID_PRIVATE_KEY ||
+  "VuxysoWpQQxOVN22TMAgR4TGTWFT8qu8YFMUrWsrPhs";
 
 webpush.setVapidDetails(
   "mailto:you@example.com",
@@ -63,35 +68,44 @@ webpush.setVapidDetails(
   privateVapidKey
 );
 
-let subscriptions = []; // Store in DB for production
+let subscriptions = []; // In-memory; store in DB for production
 
 app.post("/api/subscribe", (req, res) => {
   const subscription = req.body;
-  subscriptions.push(subscription); // Save subscription
+
+  // 🔥 Check if subscription already exists
+  const exists = subscriptions.some(
+    (sub) => sub.endpoint === subscription.endpoint
+  );
+
+  if (!exists) {
+    subscriptions.push(subscription);
+  }
+
   res.status(201).json({});
 
   const payload = JSON.stringify({
     title: "Subscribed!",
     body: "You will receive notifications.",
   });
+
   webpush.sendNotification(subscription, payload).catch(console.error);
 });
 
-// Example function to send push to all subscriptions
 const sendPushToAll = (data) => {
   subscriptions.forEach((sub) => {
     webpush.sendNotification(sub, JSON.stringify(data)).catch(console.error);
   });
 };
 
-// Sync database and models
+// Sync database
 db.sync({ alter: true })
   .then(() => console.log("✅ All models synced with MySQL"))
   .catch((err) => console.error("❌ DB Sync Error:", err.message));
 
 // Socket.io Events
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+  console.log("🟢 User connected:", socket.user.user_name);
 
   socket.on("send_message", (data) => {
     io.emit("receive_message", data);
@@ -107,7 +121,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
+    console.log("🔴 User disconnected:", socket.user.user_name);
   });
 });
 
