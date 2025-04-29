@@ -24,6 +24,21 @@ const UserSidebar = ({ currentUser, onSelectUser, recentUsers }) => {
     setFilteredUsers(matches);
   }, [search, users]);
 
+  const handleSelectUserAndClose = (user) => {
+    onSelectUser(user);
+    setTimeout(() => {
+      const offcanvasElement = document.getElementById("sidebarOffcanvas");
+      if (offcanvasElement && window.bootstrap) {
+        let offcanvasInstance =
+          window.bootstrap.Offcanvas.getInstance(offcanvasElement);
+        if (!offcanvasInstance) {
+          offcanvasInstance = new window.bootstrap.Offcanvas(offcanvasElement);
+        }
+        offcanvasInstance?.hide();
+      }
+    }, 100);
+  };
+
   return (
     <div className="p-3 h-100 d-flex flex-column">
       <h5 className="mb-3">Recent Chats</h5>
@@ -35,7 +50,7 @@ const UserSidebar = ({ currentUser, onSelectUser, recentUsers }) => {
             <button
               key={i}
               className="list-group-item list-group-item-action"
-              onClick={() => onSelectUser(u)}
+              onClick={() => handleSelectUserAndClose(u)}
             >
               {u.user_name}
             </button>
@@ -50,6 +65,7 @@ const UserSidebar = ({ currentUser, onSelectUser, recentUsers }) => {
           placeholder="Search user..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          style={{ minWidth: "200px", width: "100%" }}
         />
       </div>
 
@@ -59,7 +75,7 @@ const UserSidebar = ({ currentUser, onSelectUser, recentUsers }) => {
             <button
               key={u.user_id}
               className="list-group-item list-group-item-action"
-              onClick={() => onSelectUser(u)}
+              onClick={() => handleSelectUserAndClose(u)}
             >
               {u.user_name}
             </button>

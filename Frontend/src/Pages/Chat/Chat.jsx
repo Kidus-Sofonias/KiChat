@@ -70,20 +70,28 @@ const Chat = ({ logOut }) => {
     if ("serviceWorker" in navigator && "PushManager" in window) {
       navigator.serviceWorker
         .register("/sw.js")
-        .then((registration) => {
-          return registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicVapidKey),
-          });
-        })
-        .then((subscription) => {
-          axios.post("/api/subscribe", subscription, {
-            headers: { "Content-Type": "application/json" },
-          });
+        .then(async (registration) => {
+          const existingSubscription =
+            await registration.pushManager.getSubscription();
+          if (!existingSubscription) {
+            // Only subscribe if not already subscribed
+            const subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(publicVapidKey),
+            });
+
+            // Send subscription to server
+            await fetch(`${API_URL}/api/subscribe`, {
+              method: "POST",
+              body: JSON.stringify(subscription),
+              headers: { "Content-Type": "application/json" },
+            });
+          }
         })
         .catch(console.error);
     }
   }, []);
+
 
   // ✅ Send a message
   const handleSend = async () => {
