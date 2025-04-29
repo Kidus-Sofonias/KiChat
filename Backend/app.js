@@ -21,7 +21,7 @@ const server = http.createServer(app);
 // Initialize Socket.io
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173", // Change this to your frontend URL in production
+    origin: ["http://localhost:5173", "https://kichat.netlify.app"],
     methods: ["GET", "POST"],
   },
 });
@@ -43,7 +43,7 @@ io.use((socket, next) => {
 });
 
 // Middleware
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+app.use(cors({ origin: ["http://localhost:5173", "https://kichat.netlify.app"], credentials: true }));
 app.use(express.json());
 
 // Routes
