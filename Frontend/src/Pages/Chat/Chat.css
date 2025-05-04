@@ -55,7 +55,7 @@
   background: #e1f5fe;
   padding: 10px;
   border-radius: 12px;
-  max-width: 100%;
+  max-width: 50%;
   width: fit-content;
   flex: 1; /* allow grow */
 }
