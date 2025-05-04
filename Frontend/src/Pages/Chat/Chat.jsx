@@ -1,9 +1,11 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 import axios from "../../Components/axios";
 import { userProvider } from "../../Context/UserProvider";
 import UserSidebar from "../../Components/UserSideBar/UserSideBar";
 import { FaSearch, FaSignOutAlt, FaPaperclip } from "react-icons/fa";
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
 import "./Chat.css";
 
 const socket = io("https://kichat.onrender.com", {
@@ -29,7 +31,18 @@ const Chat = ({ logOut }) => {
   const [typingUser, setTypingUser] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [recentUsers, setRecentUsers] = useState([]);
-  const [modalImage, setModalImage] = useState("");
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const scrollRef = useRef(null);
+
+  const getAvatar = (u) =>
+    u?.avatar
+      ? `https://kichat.onrender.com${u.avatar}`
+      : `https://ui-avatars.com/api/?name=${u.user_name}`;
+
+  const imageMessages = messages.filter(
+    (m) => m.isFile && m.content.match(/\.(jpeg|jpg|png|gif|webp|png)$/i)
+  );
 
   useEffect(() => {
     axios
@@ -49,9 +62,9 @@ const Chat = ({ logOut }) => {
   }, [selectedUser]);
 
   useEffect(() => {
-    socket.on("receive_message", (data) =>
-      setMessages((prev) => [...prev, data])
-    );
+    socket.on("receive_message", (data) => {
+      setMessages((prev) => [...prev, data]);
+    });
     socket.on("typing", (username) => setTypingUser(username));
     socket.on("stop_typing", () => setTypingUser(null));
     return () => {
@@ -79,6 +92,10 @@ const Chat = ({ logOut }) => {
       });
     }
   }, []);
+
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const handleSend = async () => {
     if ((!input.trim() && !file) || !selectedUser?.user_name) return;
@@ -121,21 +138,21 @@ const Chat = ({ logOut }) => {
   const handleSelectUser = (u) => {
     setSelectedUser(u);
     setRecentUsers((prev) =>
-      prev.some((user) => user.user_name === u.user_name) ? prev : [u, ...prev]
+      prev.some((r) => r.user_name === u.user_name) ? prev : [u, ...prev]
     );
-    const offcanvasElement = document.getElementById("sidebarOffcanvas");
-    if (offcanvasElement && window.bootstrap) {
-      const instance = window.bootstrap.Offcanvas.getInstance(offcanvasElement);
+    const offcanvas = document.getElementById("sidebarOffcanvas");
+    if (offcanvas && window.bootstrap) {
+      const instance = window.bootstrap.Offcanvas.getInstance(offcanvas);
       instance?.hide();
     }
   };
 
   const handleImageClick = (src) => {
-    setModalImage(src);
-    const modal = new window.bootstrap.Modal(
-      document.getElementById("imageModal")
+    const index = imageMessages.findIndex(
+      (img) => `https://kichat.onrender.com${img.content}` === src
     );
-    modal.show();
+    setLightboxIndex(index >= 0 ? index : 0);
+    setLightboxOpen(true);
   };
 
   return (
@@ -152,7 +169,7 @@ const Chat = ({ logOut }) => {
         />
       </div>
 
-      {/* Offcanvas for mobile */}
+      {/* Mobile Offcanvas */}
       <div className="d-md-none">
         <div
           className="offcanvas offcanvas-start"
@@ -177,7 +194,7 @@ const Chat = ({ logOut }) => {
         </div>
       </div>
 
-      {/* Chat Window */}
+      {/* Chat Panel */}
       <div className="flex-grow-1 d-flex flex-column">
         <div className="d-flex justify-content-between align-items-center p-3 border-bottom bg-white">
           <h5>
@@ -200,71 +217,75 @@ const Chat = ({ logOut }) => {
           </div>
         </div>
 
+        {/* Messages */}
         <div className="flex-grow-1 overflow-auto p-3 bg-white">
-          {messages.map((m, i) => (
-            <div
-              key={i}
-              className={`d-flex ${
-                m.sender === user.user_name
-                  ? "justify-content-end"
-                  : "justify-content-start"
-              } mb-2`}
-            >
-              <div
-                className={`p-2 rounded ${
-                  m.sender === user.user_name
-                    ? "bg-success text-white"
-                    : "bg-primary text-white"
-                }`}
-                style={{ maxWidth: "70%" }}
-              >
-                <div className="fw-bold">{m.sender}</div>
-                {m.isFile ? (
-                  m.content.match(/\.(jpeg|jpg|png|gif)$/i) ? (
-                    <img
-                      src={`https://kichat.onrender.com${m.content}`}
-                      alt="uploaded"
-                      style={{
-                        maxWidth: "100%",
-                        cursor: "pointer",
-                        borderRadius: "5px",
-                      }}
-                      onClick={() =>
-                        handleImageClick(
-                          `https://kichat.onrender.com${m.content}`
-                        )
-                      }
-                    />
-                  ) : (
-                    <a
-                      href={`https://kichat.onrender.com${m.content}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Download File
-                    </a>
-                  )
-                ) : (
-                  <div>{m.content}</div>
+          {messages.map((m, i) => {
+            const isMe = m.sender === user.user_name;
+            const sender = isMe ? user : selectedUser;
+            return (
+              <div key={i} className={`message-row ${isMe ? "own" : ""}`}>
+                {!isMe && (
+                  <img
+                    src={getAvatar(sender)}
+                    alt="avatar"
+                    className="avatar"
+                  />
                 )}
-                <div className="text-end small">
-                  {new Date(m.createdAt).toLocaleTimeString()}
+                <div
+                  className={`bubble ${
+                    isMe ? "bg-success text-white" : "bg-primary text-white"
+                  }`}
+                >
+                  <div className="sender">{m.sender}</div>
+                  {m.isFile ? (
+                    m.content.match(/\.(jpeg|jpg|png|gif|webp|png)$/i) ? (
+                      <img
+                        src={`https://kichat.onrender.com${m.content}`}
+                        alt="img"
+                        onClick={() =>
+                          handleImageClick(
+                            `https://kichat.onrender.com${m.content}`
+                          )
+                        }
+                        style={{
+                          maxWidth: "100%",
+                          borderRadius: 4,
+                          cursor: "pointer",
+                        }}
+                      />
+                    ) : (
+                      <a
+                        href={`https://kichat.onrender.com${m.content}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Download
+                      </a>
+                    )
+                  ) : (
+                    <div>{m.content}</div>
+                  )}
+                  <div className="timestamp">
+                    {new Date(m.createdAt).toLocaleTimeString()}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {typingUser && (
             <div className="text-muted fst-italic">
               {typingUser} is typing...
             </div>
           )}
+          <div ref={scrollRef} />
         </div>
 
-        <div className="d-flex p-3 border-top bg-white align-items-center">
+        {/* Input */}
+        <div className="chat-input">
           <input
             type="file"
             id="fileInput"
-            style={{ display: "none" }}
+            hidden
             onChange={(e) => setFile(e.target.files[0])}
           />
           <label htmlFor="fileInput" className="btn btn-outline-secondary me-2">
@@ -286,21 +307,17 @@ const Chat = ({ logOut }) => {
         </div>
       </div>
 
-      {/* Image Preview Modal */}
-      <div className="modal fade" id="imageModal" tabIndex="-1">
-        <div className="modal-dialog modal-dialog-centered modal-lg">
-          <div className="modal-content">
-            <div className="modal-body p-0">
-              <img src={modalImage} className="img-fluid w-100" alt="preview" />
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" data-bs-dismiss="modal">
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Lightbox with multiple slides */}
+      {lightboxOpen && (
+        <Lightbox
+          open={lightboxOpen}
+          close={() => setLightboxOpen(false)}
+          index={lightboxIndex}
+          slides={imageMessages.map((m) => ({
+            src: `https://kichat.onrender.com${m.content}`,
+          }))}
+        />
+      )}
     </div>
   );
 };
