@@ -1,16 +1,13 @@
 import { useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import axios from "../../Components/axios"; // Make sure axios has baseURL
+import axios from "../../Components/axios";
 import { userProvider } from "../../Context/UserProvider";
 import UserSidebar from "../../Components/UserSideBar/UserSideBar";
 import { FaSearch, FaSignOutAlt, FaPaperclip } from "react-icons/fa";
 import "./Chat.css";
 
-const token = localStorage.getItem("token");
-
-// ✅ Pass JWT token when initializing Socket.io
 const socket = io("https://kichat.onrender.com", {
-  auth: { token },
+  auth: { token: localStorage.getItem("token") },
 });
 
 const publicVapidKey =
@@ -32,8 +29,8 @@ const Chat = ({ logOut }) => {
   const [typingUser, setTypingUser] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [recentUsers, setRecentUsers] = useState([]);
+  const [modalImage, setModalImage] = useState("");
 
-  // ✅ Fetch recent users
   useEffect(() => {
     axios
       .get(`/api/messages/recent/${user.user_name}`)
@@ -41,7 +38,6 @@ const Chat = ({ logOut }) => {
       .catch(console.error);
   }, [user]);
 
-  // ✅ Fetch chat history with selected user
   useEffect(() => {
     if (!selectedUser) return;
     axios
@@ -52,52 +48,40 @@ const Chat = ({ logOut }) => {
       .catch(console.error);
   }, [selectedUser]);
 
-  // ✅ Setup socket listeners
   useEffect(() => {
-    socket.on("receive_message", (data) => {
-      setMessages((prev) => [...prev, data]);
-    });
-
+    socket.on("receive_message", (data) =>
+      setMessages((prev) => [...prev, data])
+    );
     socket.on("typing", (username) => setTypingUser(username));
     socket.on("stop_typing", () => setTypingUser(null));
-
-    return () => socket.off("receive_message");
+    return () => {
+      socket.off("receive_message");
+      socket.off("typing");
+      socket.off("stop_typing");
+    };
   }, []);
 
-
-  // ✅ Setup push notifications
   useEffect(() => {
     if ("serviceWorker" in navigator && "PushManager" in window) {
-      navigator.serviceWorker
-        .register("/sw.js")
-        .then(async (registration) => {
-          const existingSubscription =
-            await registration.pushManager.getSubscription();
-          if (!existingSubscription) {
-            // Only subscribe if not already subscribed
-            const subscription = await registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(publicVapidKey),
-            });
-
-            // Send subscription to server
-            await fetch(`${API_URL}/api/subscribe`, {
-              method: "POST",
-              body: JSON.stringify(subscription),
-              headers: { "Content-Type": "application/json" },
-            });
-          }
-        })
-        .catch(console.error);
+      navigator.serviceWorker.register("/sw.js").then(async (registration) => {
+        const existing = await registration.pushManager.getSubscription();
+        if (!existing) {
+          const sub = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicVapidKey),
+          });
+          await fetch(`https://kichat.onrender.com/api/subscribe`, {
+            method: "POST",
+            body: JSON.stringify(sub),
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      });
     }
   }, []);
 
-
-  // ✅ Send a message
   const handleSend = async () => {
-    if (!input.trim() && !file) return;
-    if (!selectedUser?.user_name) return;
-
+    if ((!input.trim() && !file) || !selectedUser?.user_name) return;
     let msg;
 
     if (file) {
@@ -105,34 +89,24 @@ const Chat = ({ logOut }) => {
       formData.append("file", file);
       formData.append("sender", user.user_name);
       formData.append("receiver", selectedUser.user_name);
-
       const res = await axios.post("/api/messages/file", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-
       msg = res.data;
     } else {
-      const messagePayload = {
+      const res = await axios.post("/api/messages", {
         sender: user.user_name,
         receiver: selectedUser.user_name,
         content: input,
-      };
-
-      const res = await axios.post("/api/messages", messagePayload);
+      });
       msg = res.data;
     }
 
-    // 🔥 Only emit after backend confirmation
     socket.emit("send_message", msg);
-
-    // 🔥 Do NOT setMessages here. Wait for real-time 'receive_message' event.
-
     setInput("");
     setFile(null);
   };
 
-
-  // ✅ Handle typing indicator
   const handleTyping = () => {
     socket.emit("typing", user.user_name);
     if (!isTyping) {
@@ -144,7 +118,6 @@ const Chat = ({ logOut }) => {
     }
   };
 
-  // ✅ Select a user to chat with
   const handleSelectUser = (u) => {
     setSelectedUser(u);
     setRecentUsers((prev) =>
@@ -152,10 +125,17 @@ const Chat = ({ logOut }) => {
     );
     const offcanvasElement = document.getElementById("sidebarOffcanvas");
     if (offcanvasElement && window.bootstrap) {
-      const offcanvasInstance =
-        window.bootstrap.Offcanvas.getInstance(offcanvasElement);
-      offcanvasInstance?.hide();
+      const instance = window.bootstrap.Offcanvas.getInstance(offcanvasElement);
+      instance?.hide();
     }
+  };
+
+  const handleImageClick = (src) => {
+    setModalImage(src);
+    const modal = new window.bootstrap.Modal(
+      document.getElementById("imageModal")
+    );
+    modal.show();
   };
 
   return (
@@ -203,7 +183,7 @@ const Chat = ({ logOut }) => {
           <h5>
             {selectedUser
               ? `Chatting with: ${selectedUser.user_name}`
-              : "Select a user to start chatting"}
+              : "Select a user"}
           </h5>
           <div className="d-flex gap-2">
             <button
@@ -236,21 +216,24 @@ const Chat = ({ logOut }) => {
                     ? "bg-success text-white"
                     : "bg-primary text-white"
                 }`}
-                style={{ maxWidth: "60%" }}
+                style={{ maxWidth: "70%" }}
               >
-                <div
-                  className="fw-bold"
-                  style={{ cursor: "pointer", textDecoration: "underline" }}
-                  onClick={() => handleSelectUser({ user_name: m.sender })}
-                >
-                  {m.sender}
-                </div>
+                <div className="fw-bold">{m.sender}</div>
                 {m.isFile ? (
                   m.content.match(/\.(jpeg|jpg|png|gif)$/i) ? (
                     <img
                       src={`https://kichat.onrender.com${m.content}`}
                       alt="uploaded"
-                      style={{ maxWidth: "100%", borderRadius: "5px" }}
+                      style={{
+                        maxWidth: "100%",
+                        cursor: "pointer",
+                        borderRadius: "5px",
+                      }}
+                      onClick={() =>
+                        handleImageClick(
+                          `https://kichat.onrender.com${m.content}`
+                        )
+                      }
                     />
                   ) : (
                     <a
@@ -258,16 +241,14 @@ const Chat = ({ logOut }) => {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      View File
+                      Download File
                     </a>
                   )
                 ) : (
                   <div>{m.content}</div>
                 )}
                 <div className="text-end small">
-                  {m.createdAt
-                    ? new Date(m.createdAt).toLocaleTimeString()
-                    : "Invalid Date"}
+                  {new Date(m.createdAt).toLocaleTimeString()}
                 </div>
               </div>
             </div>
@@ -279,7 +260,6 @@ const Chat = ({ logOut }) => {
           )}
         </div>
 
-        {/* Input Section */}
         <div className="d-flex p-3 border-top bg-white align-items-center">
           <input
             type="file"
@@ -303,6 +283,22 @@ const Chat = ({ logOut }) => {
           <button className="btn btn-primary" onClick={handleSend}>
             Send
           </button>
+        </div>
+      </div>
+
+      {/* Image Preview Modal */}
+      <div className="modal fade" id="imageModal" tabIndex="-1">
+        <div className="modal-dialog modal-dialog-centered modal-lg">
+          <div className="modal-content">
+            <div className="modal-body p-0">
+              <img src={modalImage} className="img-fluid w-100" alt="preview" />
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" data-bs-dismiss="modal">
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
