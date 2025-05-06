@@ -5,6 +5,9 @@ const dotenv = require("dotenv");
 const { Server } = require("socket.io");
 const webpush = require("web-push");
 const jwt = require("jsonwebtoken");
+const sharp = require("sharp");
+const path = require("path");
+const fs = require("fs");
 
 const userRoutes = require("./routes/userRoute");
 const messageRoutes = require("./routes/messageRoute");
@@ -43,7 +46,21 @@ io.use((socket, next) => {
 });
 
 // Middleware
-app.use(cors({ origin: ["http://localhost:5173", "https://kichat.netlify.app"], credentials: true }));
+app.use(
+  "/uploads",
+  express.static("uploads", {
+    setHeaders: (res) => {
+      res.setHeader("Cache-Control", "public, max-age=31536000"); // 1 year
+    },
+  })
+);
+
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "https://kichat.netlify.app"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // Routes
@@ -52,7 +69,6 @@ app.get("/", (req, res) => {
 });
 app.use("/api/users", userRoutes);
 app.use("/api/messages", jwtMiddleware, messageRoutes);
-app.use("/uploads", express.static("uploads"));
 
 // Push Notifications Setup
 const publicVapidKey =

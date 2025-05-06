@@ -33,6 +33,7 @@ const Chat = ({ logOut }) => {
   const [recentUsers, setRecentUsers] = useState([]);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [loadingImage, setLoadingImage] = useState(false);
   const scrollRef = useRef(null);
 
   const getAvatar = (u) =>
@@ -99,29 +100,44 @@ const Chat = ({ logOut }) => {
 
   const handleSend = async () => {
     if ((!input.trim() && !file) || !selectedUser?.user_name) return;
+
+    setLoadingImage(true);
     let msg;
 
-    if (file) {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("sender", user.user_name);
-      formData.append("receiver", selectedUser.user_name);
-      const res = await axios.post("/api/messages/file", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      msg = res.data;
-    } else {
-      const res = await axios.post("/api/messages", {
-        sender: user.user_name,
-        receiver: selectedUser.user_name,
-        content: input,
-      });
-      msg = res.data;
-    }
+    try {
+      if (file) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("sender", user.user_name);
+        formData.append("receiver", selectedUser.user_name);
+        if (input) formData.append("caption", input);
 
-    socket.emit("send_message", msg);
-    setInput("");
-    setFile(null);
+        const res = await axios.post("/api/messages/file", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        msg = res.data;
+
+        // Combine caption and file path into a single content field
+        if (input) {
+          msg.content = `${input}\n${msg.content}`;
+        }
+      } else {
+        const res = await axios.post("/api/messages", {
+          sender: user.user_name,
+          receiver: selectedUser.user_name,
+          content: input,
+        });
+        msg = res.data;
+      }
+
+      socket.emit("send_message", msg);
+      setInput("");
+      setFile(null);
+    } catch (error) {
+      console.error("Failed to send message:", error);
+    } finally {
+      setLoadingImage(false);
+    }
   };
 
   const handleTyping = () => {
@@ -157,7 +173,6 @@ const Chat = ({ logOut }) => {
 
   return (
     <div className="container-fluid vh-100 d-flex flex-column flex-md-row">
-      {/* Sidebar */}
       <div
         className="d-none d-md-block bg-light border-end"
         style={{ width: "250px" }}
@@ -169,7 +184,6 @@ const Chat = ({ logOut }) => {
         />
       </div>
 
-      {/* Mobile Offcanvas */}
       <div className="d-md-none">
         <div
           className="offcanvas offcanvas-start"
@@ -194,7 +208,6 @@ const Chat = ({ logOut }) => {
         </div>
       </div>
 
-      {/* Chat Panel */}
       <div className="flex-grow-1 d-flex flex-column">
         <div className="d-flex justify-content-between align-items-center p-3 border-bottom bg-white">
           <h5>
@@ -217,7 +230,6 @@ const Chat = ({ logOut }) => {
           </div>
         </div>
 
-        {/* Messages */}
         <div className="flex-grow-1 overflow-auto p-3 bg-white">
           {messages.map((m, i) => {
             const isMe = m.sender === user.user_name;
@@ -232,27 +244,37 @@ const Chat = ({ logOut }) => {
                   />
                 )}
                 <div
-                  className={`bubble ${
-                    isMe ? "bg-success text-white" : "bg-primary text-white"
-                  }`}
+                  className={`bubble ${isMe ? "text-dark" : "text-light"}`}
+                  style={{ backgroundColor: isMe ? "#d4edda" : "#cce5ff" }}
                 >
                   <div className="sender">{m.sender}</div>
                   {m.isFile ? (
                     m.content.match(/\.(jpeg|jpg|png|gif|webp|png)$/i) ? (
-                      <img
-                        src={`https://kichat.onrender.com${m.content}`}
-                        alt="img"
-                        onClick={() =>
-                          handleImageClick(
-                            `https://kichat.onrender.com${m.content}`
-                          )
-                        }
-                        style={{
-                          maxWidth: "100%",
-                          borderRadius: 4,
-                          cursor: "pointer",
-                        }}
-                      />
+                      <>
+                        <img
+                          src={`https://kichat.onrender.com${m.content
+                            .split("\n")
+                            .pop()}`}
+                          alt="img"
+                          onClick={() =>
+                            handleImageClick(
+                              `https://kichat.onrender.com${m.content
+                                .split("\n")
+                                .pop()}`
+                            )
+                          }
+                          style={{
+                            maxWidth: "100%",
+                            borderRadius: 4,
+                            cursor: "pointer",
+                          }}
+                        />
+                        {m.content.includes("\n") && (
+                          <div className="mt-1 small fst-italic">
+                            {m.content.split("\n")[0]}
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <a
                         href={`https://kichat.onrender.com${m.content}`}
@@ -280,7 +302,6 @@ const Chat = ({ logOut }) => {
           <div ref={scrollRef} />
         </div>
 
-        {/* Input */}
         <div className="chat-input">
           <input
             type="file"
@@ -305,16 +326,24 @@ const Chat = ({ logOut }) => {
             Send
           </button>
         </div>
+        {loadingImage && (
+          <div className="text-muted small mt-1 p-2 ps-3">
+            <span
+              className="spinner-border spinner-border-sm me-1"
+              role="status"
+            />{" "}
+            Sending image...
+          </div>
+        )}
       </div>
 
-      {/* Lightbox with multiple slides */}
       {lightboxOpen && (
         <Lightbox
           open={lightboxOpen}
           close={() => setLightboxOpen(false)}
           index={lightboxIndex}
           slides={imageMessages.map((m) => ({
-            src: `https://kichat.onrender.com${m.content}`,
+            src: `https://kichat.onrender.com${m.content.split("\n").pop()}`,
           }))}
         />
       )}
