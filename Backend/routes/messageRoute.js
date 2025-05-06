@@ -32,11 +32,14 @@ router.post("/file", upload.single("file"), async (req, res) => {
   try {
     const { sender, receiver, caption = "" } = req.body;
 
-    // Convert buffer to data URI
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Check file size/type here if needed
     const base64 = req.file.buffer.toString("base64");
     const dataUri = `data:${req.file.mimetype};base64,${base64}`;
 
-    // Upload to Cloudinary
     const result = await cloudinary.uploader.upload(dataUri, {
       folder: "kichat_uploads",
     });
@@ -53,10 +56,11 @@ router.post("/file", upload.single("file"), async (req, res) => {
 
     res.status(201).json(message);
   } catch (err) {
-    console.error("Cloudinary upload failed:", err.message);
+    console.error("Cloudinary upload failed:", err);
     res.status(500).json({ error: "Failed to upload image" });
   }
 });
+
 
 
 module.exports = router;
