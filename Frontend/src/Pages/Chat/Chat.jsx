@@ -116,8 +116,6 @@ const Chat = ({ logOut }) => {
           headers: { "Content-Type": "multipart/form-data" },
         });
         msg = res.data;
-
-        // Combine caption and file path into a single content field
         if (input) {
           msg.content = `${input}\n${msg.content}`;
         }
@@ -165,7 +163,11 @@ const Chat = ({ logOut }) => {
 
   const handleImageClick = (src) => {
     const index = imageMessages.findIndex(
-      (img) => `https://kichat.onrender.com${img.content}` === src
+      (img) =>
+        (img.content.split("\n").pop().startsWith("http")
+          ? img.content.split("\n").pop()
+          : `https://kichat.onrender.com${img.content.split("\n").pop()}`) ===
+        src
     );
     setLightboxIndex(index >= 0 ? index : 0);
     setLightboxOpen(true);
@@ -234,6 +236,9 @@ const Chat = ({ logOut }) => {
           {messages.map((m, i) => {
             const isMe = m.sender === user.user_name;
             const sender = isMe ? user : selectedUser;
+            const imageUrl = m.content.split("\n").pop().startsWith("http")
+              ? m.content.split("\n").pop()
+              : `https://kichat.onrender.com${m.content.split("\n").pop()}`;
             return (
               <div key={i} className={`message-row ${isMe ? "own" : ""}`}>
                 {!isMe && (
@@ -244,25 +249,17 @@ const Chat = ({ logOut }) => {
                   />
                 )}
                 <div
-                  className={`bubble ${isMe ? "text-dark" : "text-light"}`}
+                  className={`bubble text-dark`}
                   style={{ backgroundColor: isMe ? "#d4edda" : "#cce5ff" }}
                 >
                   <div className="sender">{m.sender}</div>
                   {m.isFile ? (
-                    m.content.match(/\.(jpeg|jpg|png|gif|webp|png)$/i) ? (
+                    imageUrl.match(/\.(jpeg|jpg|png|gif|webp|png)$/i) ? (
                       <>
                         <img
-                          src={`https://kichat.onrender.com${m.content
-                            .split("\n")
-                            .pop()}`}
+                          src={imageUrl}
                           alt="img"
-                          onClick={() =>
-                            handleImageClick(
-                              `https://kichat.onrender.com${m.content
-                                .split("\n")
-                                .pop()}`
-                            )
-                          }
+                          onClick={() => handleImageClick(imageUrl)}
                           style={{
                             maxWidth: "100%",
                             borderRadius: 4,
@@ -277,7 +274,7 @@ const Chat = ({ logOut }) => {
                       </>
                     ) : (
                       <a
-                        href={`https://kichat.onrender.com${m.content}`}
+                        href={imageUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
@@ -310,7 +307,15 @@ const Chat = ({ logOut }) => {
             onChange={(e) => setFile(e.target.files[0])}
           />
           <label htmlFor="fileInput" className="btn btn-outline-secondary me-2">
-            <FaPaperclip />
+            {loadingImage ? (
+              <span
+                className="spinner-border spinner-border-sm"
+                role="status"
+                aria-hidden="true"
+              ></span>
+            ) : (
+              <FaPaperclip />
+            )}
           </label>
           <input
             className="form-control me-2"
@@ -332,7 +337,7 @@ const Chat = ({ logOut }) => {
               className="spinner-border spinner-border-sm me-1"
               role="status"
             />{" "}
-            Sending image...
+            Sending file...
           </div>
         )}
       </div>
@@ -343,7 +348,9 @@ const Chat = ({ logOut }) => {
           close={() => setLightboxOpen(false)}
           index={lightboxIndex}
           slides={imageMessages.map((m) => ({
-            src: `https://kichat.onrender.com${m.content.split("\n").pop()}`,
+            src: m.content.split("\n").pop().startsWith("http")
+              ? m.content.split("\n").pop()
+              : `https://kichat.onrender.com${m.content.split("\n").pop()}`,
           }))}
         />
       )}
