@@ -6,6 +6,8 @@
     "start": "node app.js"
   },
   "dependencies": {
+    "@aws-sdk/client-rds-data": "^3.806.0",
+    "aws-sdk": "^2.1692.0",
     "bcrypt": "^5.1.1",
     "cloudinary": "^2.6.1",
     "cors": "^2.8.5",
@@ -18,6 +20,7 @@
     "mysql2": "^3.13.0",
     "path": "^0.12.7",
     "sequelize": "^6.37.7",
+    "sequelize-cli": "^6.6.3",
     "sharp": "^0.34.1",
     "socket.io": "^4.8.1",
     "uuid": "^11.1.0",

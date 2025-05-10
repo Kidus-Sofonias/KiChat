@@ -117,7 +117,7 @@ const sendPushToAll = (data) => {
 // Sync database
 db.sync({ alter: true })
   .then(() => console.log("✅ All models synced with MySQL"))
-  .catch((err) => console.error("❌ DB Sync Error:", err.message));
+  .catch((err) => console.error("❌ AWS DB Sync Error:", err.message));
 
 // Socket.io Events
 io.on("connection", (socket) => {
@@ -142,5 +142,5 @@ io.on("connection", (socket) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 import axios from "../../Components/axios";
 import { userProvider } from "../../Context/UserProvider";
 import UserSidebar from "../../Components/UserSideBar/UserSideBar";
-import { FaSearch, FaSignOutAlt, FaPaperclip } from "react-icons/fa";
+import { FaSearch, FaSignOutAlt, FaPaperclip, FaTimes } from "react-icons/fa";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import "./Chat.css";
@@ -27,23 +27,12 @@ const Chat = ({ logOut }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [file, setFile] = useState(null);
-  const [isTyping, setIsTyping] = useState(false);
-  const [typingUser, setTypingUser] = useState(null);
+  const [preview, setPreview] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [recentUsers, setRecentUsers] = useState([]);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
-  const [loadingImage, setLoadingImage] = useState(false);
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const scrollRef = useRef(null);
-
-  const getAvatar = (u) =>
-    u?.avatar
-      ? `https://kichat.onrender.com${u.avatar}`
-      : `https://ui-avatars.com/api/?name=${u.user_name}`;
-
-  const imageMessages = messages.filter(
-    (m) => m.isFile && m.content.match(/\.(jpeg|jpg|png|gif|webp|png)$/i)
-  );
+  const messagesRef = useRef(null);
 
   useEffect(() => {
     axios
@@ -76,35 +65,47 @@ const Chat = ({ logOut }) => {
   }, []);
 
   useEffect(() => {
-    if ("serviceWorker" in navigator && "PushManager" in window) {
-      navigator.serviceWorker.register("/sw.js").then(async (registration) => {
-        const existing = await registration.pushManager.getSubscription();
-        if (!existing) {
-          const sub = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicVapidKey),
-          });
-          await fetch(`https://kichat.onrender.com/api/subscribe`, {
-            method: "POST",
-            body: JSON.stringify(sub),
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-      });
-    }
-  }, []);
-
-  useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (messagesRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = messagesRef.current;
+        const isScrolledUp = scrollTop < scrollHeight - clientHeight - 100;
+        setIsHeaderVisible(isScrolledUp);
+      }
+    };
+
+    const messagesEl = messagesRef.current;
+    if (messagesEl) messagesEl.addEventListener("scroll", handleScroll);
+
+    return () => messagesEl?.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const getAvatar = (username) =>
+    `https://ui-avatars.com/api/?name=${username}&background=random`;
+
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile && selectedFile.type.startsWith("image/")) {
+      setFile(selectedFile);
+      const fileReader = new FileReader();
+      fileReader.onload = () => setPreview(fileReader.result);
+      fileReader.readAsDataURL(selectedFile);
+    }
+  };
+
+  const handleCancelPreview = () => {
+    setFile(null);
+    setPreview(null);
+  };
 
   const handleSend = async () => {
     if ((!input.trim() && !file) || !selectedUser?.user_name) return;
 
-    setLoadingImage(true);
-    let msg;
-
     try {
+      let msg;
       if (file) {
         const formData = new FormData();
         formData.append("file", file);
@@ -116,9 +117,8 @@ const Chat = ({ logOut }) => {
           headers: { "Content-Type": "multipart/form-data" },
         });
         msg = res.data;
-        if (input) {
-          msg.content = `${input}\n${msg.content}`;
-        }
+        if (input) msg.content = `${input}\n${msg.content}`;
+        handleCancelPreview();
       } else {
         const res = await axios.post("/api/messages", {
           sender: user.user_name,
@@ -127,91 +127,31 @@ const Chat = ({ logOut }) => {
         });
         msg = res.data;
       }
-
       socket.emit("send_message", msg);
       setInput("");
       setFile(null);
     } catch (error) {
       console.error("Failed to send message:", error);
-    } finally {
-      setLoadingImage(false);
     }
-  };
-
-  const handleTyping = () => {
-    socket.emit("typing", user.user_name);
-    if (!isTyping) {
-      setIsTyping(true);
-      setTimeout(() => {
-        socket.emit("stop_typing");
-        setIsTyping(false);
-      }, 1000);
-    }
-  };
-
-  const handleSelectUser = (u) => {
-    setSelectedUser(u);
-    setRecentUsers((prev) =>
-      prev.some((r) => r.user_name === u.user_name) ? prev : [u, ...prev]
-    );
-    const offcanvas = document.getElementById("sidebarOffcanvas");
-    if (offcanvas && window.bootstrap) {
-      const instance = window.bootstrap.Offcanvas.getInstance(offcanvas);
-      instance?.hide();
-    }
-  };
-
-  const handleImageClick = (src) => {
-    const index = imageMessages.findIndex(
-      (img) =>
-        (img.content.split("\n").pop().startsWith("http")
-          ? img.content.split("\n").pop()
-          : `https://kichat.onrender.com${img.content.split("\n").pop()}`) ===
-        src
-    );
-    setLightboxIndex(index >= 0 ? index : 0);
-    setLightboxOpen(true);
   };
 
   return (
     <div className="container-fluid vh-100 d-flex flex-column flex-md-row">
-      <div
-        className="d-none d-md-block bg-light border-end"
-        style={{ width: "250px" }}
-      >
+      {/* Sidebar for Desktop and Offcanvas for Mobile */}
+      <div className="sidebar d-none d-md-block">
         <UserSidebar
           currentUser={user}
-          onSelectUser={handleSelectUser}
+          onSelectUser={setSelectedUser}
           recentUsers={recentUsers}
         />
       </div>
 
-      <div className="d-md-none">
-        <div
-          className="offcanvas offcanvas-start"
-          tabIndex="-1"
-          id="sidebarOffcanvas"
-        >
-          <div className="offcanvas-header">
-            <h5 className="offcanvas-title">Chats</h5>
-            <button
-              type="button"
-              className="btn-close"
-              data-bs-dismiss="offcanvas"
-            ></button>
-          </div>
-          <div className="offcanvas-body">
-            <UserSidebar
-              currentUser={user}
-              onSelectUser={handleSelectUser}
-              recentUsers={recentUsers}
-            />
-          </div>
-        </div>
-      </div>
-
       <div className="flex-grow-1 d-flex flex-column">
-        <div className="d-flex justify-content-between align-items-center p-3 border-bottom bg-white">
+        <div
+          className={`chat-header d-flex justify-content-between align-items-center p-3 border-bottom bg-white ${
+            isHeaderVisible ? "visible" : "hidden"
+          }`}
+        >
           <h5>
             {selectedUser
               ? `Chatting with: ${selectedUser.user_name}`
@@ -232,71 +172,25 @@ const Chat = ({ logOut }) => {
           </div>
         </div>
 
-        <div className="flex-grow-1 overflow-auto p-3 bg-white">
-          {messages.map((m, i) => {
-            const isMe = m.sender === user.user_name;
-            const sender = isMe ? user : selectedUser;
-            const imageUrl = m.content.split("\n").pop().startsWith("http")
-              ? m.content.split("\n").pop()
-              : `https://kichat.onrender.com${m.content.split("\n").pop()}`;
-            return (
-              <div key={i} className={`message-row ${isMe ? "own" : ""}`}>
-                {!isMe && (
-                  <img
-                    src={getAvatar(sender)}
-                    alt="avatar"
-                    className="avatar"
-                  />
-                )}
-                <div
-                  className={`bubble text-dark`}
-                  style={{ backgroundColor: isMe ? "#d4edda" : "#cce5ff" }}
-                >
-                  <div className="sender">{m.sender}</div>
-                  {m.isFile ? (
-                    imageUrl.match(/\.(jpeg|jpg|png|gif|webp|png)$/i) ? (
-                      <>
-                        <img
-                          src={imageUrl}
-                          alt="img"
-                          onClick={() => handleImageClick(imageUrl)}
-                          style={{
-                            maxWidth: "100%",
-                            borderRadius: 4,
-                            cursor: "pointer",
-                          }}
-                        />
-                        {m.content.includes("\n") && (
-                          <div className="mt-1 small fst-italic">
-                            {m.content.split("\n")[0]}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <a
-                        href={imageUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Download
-                      </a>
-                    )
-                  ) : (
-                    <div>{m.content}</div>
-                  )}
-                  <div className="timestamp">
-                    {new Date(m.createdAt).toLocaleTimeString()}
-                  </div>
-                </div>
+        <div className="chat-messages" ref={messagesRef}>
+          {messages.map((m, i) => (
+            <div
+              key={i}
+              className={`message-row ${
+                m.sender === user.user_name ? "own" : ""
+              }`}
+            >
+              <img src={getAvatar(m.sender)} alt="avatar" className="avatar" />
+              <div
+                className={`bubble ${
+                  m.sender === user.user_name ? "own-bubble" : "other-bubble"
+                }`}
+              >
+                <div className="sender">{m.sender}</div>
+                <div>{m.content}</div>
               </div>
-            );
-          })}
-          {typingUser && (
-            <div className="text-muted fst-italic">
-              {typingUser} is typing...
             </div>
-          )}
-          <div ref={scrollRef} />
+          ))}
         </div>
 
         <div className="chat-input">
@@ -304,56 +198,26 @@ const Chat = ({ logOut }) => {
             type="file"
             id="fileInput"
             hidden
-            onChange={(e) => setFile(e.target.files[0])}
+            onChange={handleFileChange}
           />
           <label htmlFor="fileInput" className="btn btn-outline-secondary me-2">
-            {loadingImage ? (
-              <span
-                className="spinner-border spinner-border-sm"
-                role="status"
-                aria-hidden="true"
-              ></span>
-            ) : (
-              <FaPaperclip />
-            )}
+            <FaPaperclip />
           </label>
           <input
             className="form-control me-2"
             value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              handleTyping();
-            }}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            onChange={(e) => setInput(e.target.value)}
             placeholder="Type your message..."
           />
-          <button className="btn btn-primary" onClick={handleSend}>
+          <button
+            className="btn btn-primary"
+            onClick={handleSend}
+            disabled={!input.trim() && !file}
+          >
             Send
           </button>
         </div>
-        {loadingImage && (
-          <div className="text-muted small mt-1 p-2 ps-3">
-            <span
-              className="spinner-border spinner-border-sm me-1"
-              role="status"
-            />{" "}
-            Sending file...
-          </div>
-        )}
       </div>
-
-      {lightboxOpen && (
-        <Lightbox
-          open={lightboxOpen}
-          close={() => setLightboxOpen(false)}
-          index={lightboxIndex}
-          slides={imageMessages.map((m) => ({
-            src: m.content.split("\n").pop().startsWith("http")
-              ? m.content.split("\n").pop()
-              : `https://kichat.onrender.com${m.content.split("\n").pop()}`,
-          }))}
-        />
-      )}
     </div>
   );
 };

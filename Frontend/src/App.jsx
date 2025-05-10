@@ -38,7 +38,12 @@ function App() {
   }
 
   useEffect(() => {
-    checkUser();
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    } else {
+      checkUser();
+    }
   }, []);
 
   const isLandingPage = location.pathname === "/";

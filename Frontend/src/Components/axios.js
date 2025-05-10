@@ -1,8 +1,9 @@
 import axios from "axios";
 
 const instance = axios.create({
-  // baseURL: "http://localhost:5000",
-  baseURL: "https://kichat.onrender.com",
+  // baseURL: "https://kichat.onrender.com",
+  baseURL: "http://localhost:3000",
+  withCredentials: true,
 });
 
 instance.interceptors.request.use((config) => {
@@ -12,5 +13,13 @@ instance.interceptors.request.use((config) => {
   }
   return config;
 });
+
+instance.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    console.error("API Error: ", err.response?.data || err.message);
+    return Promise.reject(err);
+  }
+);
 
 export default instance;

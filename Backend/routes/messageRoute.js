@@ -1,18 +1,26 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
-const sharp = require("sharp");
+const AWS = require("aws-sdk");
+require("dotenv").config();
+
+// AWS S3 Configuration
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
+});
+
+// Memory storage to handle file buffer
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
 const {
   createMessage,
   getMessages,
   getMessagesBetweenUsers,
   getRecentUsers,
 } = require("../controller/messageController");
-
-const storage = multer.memoryStorage(); // Handle file in memory
-const upload = multer({ storage });
 
 // Routes
 router.post("/", createMessage);
@@ -21,46 +29,43 @@ router.get("/between", getMessagesBetweenUsers);
 router.get("/recent/:username", getRecentUsers);
 
 // ⏬ Compressed file upload route
-const cloudinary = require("cloudinary").v2;
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
 router.post("/file", upload.single("file"), async (req, res) => {
   try {
     const { sender, receiver, caption = "" } = req.body;
+    const file = req.file;
 
-    if (!req.file) {
+    if (!file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    // Check file size/type here if needed
-    const base64 = req.file.buffer.toString("base64");
-    const dataUri = `data:${req.file.mimetype};base64,${base64}`;
+    const fileName = `${Date.now()}-${file.originalname}`;
+    const params = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: fileName,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+      ACL: "public-read",
+    };
 
-    const result = await cloudinary.uploader.upload(dataUri, {
-      folder: "kichat_uploads",
-    });
+    // Upload to S3
+    const data = await s3.upload(params).promise();
+    const fileUrl = data.Location;
+    const messageContent = caption ? `${caption}\n${fileUrl}` : fileUrl;
 
-    const imageUrl = result.secure_url;
-    const content = caption ? `${caption}\n${imageUrl}` : imageUrl;
-
-    const message = await require("../models/message").create({
+    // Save to your database
+    const Message = require("../models/message");
+    const message = await Message.create({
       sender,
       receiver,
-      content,
+      content: messageContent,
       isFile: true,
     });
 
     res.status(201).json(message);
   } catch (err) {
-    console.error("Cloudinary upload failed:", err);
-    res.status(500).json({ error: "Failed to upload image" });
+    console.error("S3 upload failed:", err.message);
+    res.status(500).json({ error: "Failed to upload file to S3" });
   }
 });
-
-
 
 module.exports = router;

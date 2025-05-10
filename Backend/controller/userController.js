@@ -59,7 +59,20 @@ async function login(req, res) {
   try {
     const user = await User.findOne({ where: { user_name } });
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    if (!user) {
+      console.error(
+        `Login failed: User with username "${user_name}" not found`
+      );
+      return res
+        .status(StatusCodes.UNAUTHORIZED)
+        .json({ msg: "Invalid username or password" });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      console.error(
+        `Login failed: Incorrect password for username "${user_name}"`
+      );
       return res
         .status(StatusCodes.UNAUTHORIZED)
         .json({ msg: "Invalid username or password" });
@@ -79,7 +92,7 @@ async function login(req, res) {
       token,
     });
   } catch (error) {
-    console.error("Login error:", error.message);
+    console.error("Login error:", error.message, error.stack);
     return res
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
       .json({ msg: "Something went wrong, try again later" });
