@@ -1,12 +1,10 @@
 const bcrypt = require("bcrypt");
 const { StatusCodes } = require("http-status-codes");
-const { Op } = require("sequelize");
-const jwt = require("jsonwebtoken"); // 🔥 JWT for auth
-const User = require("../models/user");
+const jwt = require("jsonwebtoken");
+const store = require("../db/store");
 
-// ✅ Register User
 async function register(req, res) {
-  const { user_name, password } = req.body;
+  const { user_name, password, avatar_seed = "byte-bot" } = req.body;
 
   if (!user_name || !password) {
     return res
@@ -15,7 +13,8 @@ async function register(req, res) {
   }
 
   try {
-    const existingUser = await User.findOne({ where: { user_name } });
+    const existingUser = await store.findUserByUsername(user_name);
+
     if (existingUser) {
       return res
         .status(StatusCodes.BAD_REQUEST)
@@ -30,14 +29,15 @@ async function register(req, res) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await User.create({
+    await store.createUser({
       user_name,
       password: hashedPassword,
+      avatar_seed,
     });
 
     return res
       .status(StatusCodes.CREATED)
-      .json({ msg: "User created successfully" });
+      .json({ msg: "User created successfully", avatar_seed });
   } catch (error) {
     console.error("Register error:", error.message);
     return res
@@ -46,7 +46,6 @@ async function register(req, res) {
   }
 }
 
-// ✅ Login User (Using JWT)
 async function login(req, res) {
   const { user_name, password } = req.body;
 
@@ -57,28 +56,22 @@ async function login(req, res) {
   }
 
   try {
-    const user = await User.findOne({ where: { user_name } });
+    const user = await store.findUserByUsername(user_name);
 
     if (!user) {
-      console.error(
-        `Login failed: User with username "${user_name}" not found`
-      );
       return res
         .status(StatusCodes.UNAUTHORIZED)
         .json({ msg: "Invalid username or password" });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
+
     if (!isPasswordValid) {
-      console.error(
-        `Login failed: Incorrect password for username "${user_name}"`
-      );
       return res
         .status(StatusCodes.UNAUTHORIZED)
         .json({ msg: "Invalid username or password" });
     }
 
-    // 🔥 Generate JWT
     const token = jwt.sign(
       { user_id: user.user_id, user_name: user.user_name },
       process.env.JWT_SECRET,
@@ -89,6 +82,7 @@ async function login(req, res) {
       msg: "User login successful",
       user_name: user.user_name,
       user_id: user.user_id,
+      avatar_seed: user.avatar_seed,
       token,
     });
   } catch (error) {
@@ -99,15 +93,11 @@ async function login(req, res) {
   }
 }
 
-// ✅ Check Authenticated User
 async function checkUser(req, res) {
   const { user_id } = req.user;
 
   try {
-    const user = await User.findOne({
-      where: { user_id },
-      attributes: ["user_id", "user_name"],
-    });
+    const user = await store.findUserById(user_id);
 
     if (!user) {
       return res.status(StatusCodes.NOT_FOUND).json({ msg: "User not found" });
@@ -117,6 +107,7 @@ async function checkUser(req, res) {
       msg: "Valid user",
       user_id: user.user_id,
       user_name: user.user_name,
+      avatar_seed: user.avatar_seed,
     });
   } catch (error) {
     console.error("CheckUser error:", error.message);
@@ -126,22 +117,14 @@ async function checkUser(req, res) {
   }
 }
 
-// ✅ Get All Users Except Current
 async function getAllUsers(req, res) {
   const currentUserId = req.user.user_id;
-  console.log("Fetching users, currentUserId:", currentUserId);
 
   try {
-    const users = await User.findAll({
-      where: {
-        user_id: { [Op.ne]: currentUserId },
-      },
-      attributes: ["user_id", "user_name"],
-    });
-
+    const users = await store.listOtherUsers(currentUserId);
     return res.status(StatusCodes.OK).json(users);
-  } catch (err) {
-    console.error("Error fetching users:", err.message);
+  } catch (error) {
+    console.error("Error fetching users:", error.message);
     return res
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
       .json({ msg: "Unable to fetch users" });

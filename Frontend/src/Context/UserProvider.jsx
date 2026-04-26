@@ -1,9 +1,12 @@
-import React, { createContext, useState, useEffect } from "react";
-
-export const userProvider = createContext();
+import React, { useState, useEffect } from "react";
+import { userProvider as UserProviderContext } from "./UserContext";
 
 export const UserProvider = ({ children }) => {
-  const [user, setUser] = useState({ user_name: "", user_id: "" });
+  const [user, setUser] = useState({
+    user_name: "",
+    user_id: "",
+    avatar_seed: "byte-bot",
+  });
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -20,9 +23,9 @@ export const UserProvider = ({ children }) => {
   }, []);
 
   return (
-    <userProvider.Provider value={[user, setUser]}>
+    <UserProviderContext.Provider value={[user, setUser]}>
       {children}
-    </userProvider.Provider>
+    </UserProviderContext.Provider>
   );
 };
 

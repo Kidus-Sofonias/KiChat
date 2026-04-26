@@ -1,134 +1,203 @@
-import React, { useContext, useState } from "react";
-import "./SignIn.css";
-import { userProvider } from "../../Context/UserProvider";
-import axios from "../../Components/axios";
-import { useNavigate, Link } from "react-router-dom";
+import { useContext, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { CircularProgress } from "@mui/material";
+import axios from "../../Components/axios";
+import { userProvider } from "../../Context/UserContext";
+import { usePreferences } from "../../Context/usePreferences";
+import { AVATAR_OPTIONS, buildAvatarUrl } from "../../Utils/avatarOptions";
+import "../Auth/Auth.css";
 
-function SignIn() {
+const SignIn = () => {
   const {
     register,
     trigger,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm();
-
   const navigate = useNavigate();
-  const [user, setUser] = useContext(userProvider);
-  const [passwordVisible, setPasswordVisible] = useState(true);
+  const [, setUser] = useContext(userProvider);
+  const { copy } = usePreferences();
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState("");
+  const usernameValue = watch("username", "");
+
+  const previewAvatar = useMemo(() => {
+    const normalizedUsername = usernameValue.trim().toLowerCase();
+
+    if (!normalizedUsername) {
+      return AVATAR_OPTIONS[0];
+    }
+
+    const characterCodeTotal = normalizedUsername
+      .split("")
+      .reduce((total, character) => total + character.charCodeAt(0), 0);
+
+    return AVATAR_OPTIONS[characterCodeTotal % AVATAR_OPTIONS.length];
+  }, [usernameValue]);
 
   const togglePasswordVisibility = () => {
-    setPasswordVisible(!passwordVisible);
+    setPasswordVisible((currentState) => !currentState);
   };
 
-  async function logIn(data) {
+  const logIn = async (data) => {
     setLoading(true);
+    setFormError("");
+
     try {
       const response = await axios.post("/api/users/login", {
-        user_name: data.username,
+        user_name: data.username.trim(),
         password: data.password,
       });
 
-      const { token, user_name, user_id } = response.data;
+      const { token, user_name, user_id, avatar_seed } = response.data;
+      const authenticatedUser = {
+        user_name,
+        user_id,
+        avatar_seed: avatar_seed || "byte-bot",
+      };
 
-      const userObj = { user_name, user_id };
-      localStorage.setItem("token", token); // Save JWT
-      localStorage.setItem("user", JSON.stringify(userObj)); // Optional
-      setUser(userObj);
-
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(authenticatedUser));
+      setUser(authenticatedUser);
       navigate("/chat");
     } catch (error) {
-      alert("Invalid credentials or server error.");
+      setFormError(
+        error.response?.status === 401
+          ? copy.auth.signin.invalidCredentials
+          : error.response?.data?.msg || copy.auth.signin.genericError
+      );
       console.error(error);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
-    <div
-      className="container d-flex justify-content-center align-items-center"
-      style={{ minHeight: "100vh" }}
-    >
-      <div className="col-md-6 col-lg-5 shadow p-5 bg-white rounded">
-        {loading ? (
-          <div className="text-center py-5">
-            <CircularProgress />
+    <div className="auth-screen auth-screen-signin">
+      <div className="auth-shell">
+        <section className="auth-hero">
+          <div className="auth-kicker">{copy.auth.signin.kicker}</div>
+          <h1>{copy.auth.signin.title}</h1>
+          <p>{copy.auth.signin.description}</p>
+
+          <div className="auth-highlight-card">
+            <img
+              src={buildAvatarUrl(previewAvatar.id, previewAvatar.id, 180)}
+              alt={previewAvatar.name}
+              className="auth-highlight-avatar"
+            />
+            <div className="auth-highlight-copy">
+              <span>{copy.auth.signin.previewLabel}</span>
+              <strong>{previewAvatar.name}</strong>
+              <p>{copy.auth.signin.previewCopy}</p>
+            </div>
           </div>
-        ) : (
-          <>
-            <h4 className="mb-3 text-center">Login to KiChat</h4>
-            <p className="text-center text-muted">
-              Don't have an account?{" "}
-              <Link to="/signup" className="text-decoration-none">
-                Create one here
-              </Link>
-            </p>
-            <form onSubmit={handleSubmit(logIn)} noValidate>
-              <div className="mb-3">
-                <input
-                  type="text"
-                  className={`form-control ${
-                    errors.username ? "is-invalid" : ""
-                  }`}
-                  placeholder="Username"
-                  {...register("username", {
-                    required: "Username is required",
-                    minLength: {
-                      value: 3,
-                      message: "Username must be at least 3 characters",
-                    },
-                  })}
-                  onKeyUp={() => trigger("username")}
-                />
-                {errors.username && (
-                  <div className="invalid-feedback">
-                    {errors.username.message}
-                  </div>
-                )}
+
+          <div className="auth-steps">
+            {copy.auth.signin.steps.map((step) => (
+              <div key={step.title} className="auth-step">
+                <strong>{step.title}</strong>
+                <span>{step.copy}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="auth-card">
+          {loading ? (
+            <div className="auth-loading-state">
+              <CircularProgress />
+              <span>{copy.auth.signin.loading}</span>
+            </div>
+          ) : (
+            <>
+              <div className="auth-card-header">
+                <div>
+                  <span className="auth-card-label">
+                    {copy.auth.signin.cardLabel}
+                  </span>
+                  <h2>{copy.auth.signin.cardTitle}</h2>
+                </div>
+                <p>
+                  {copy.auth.signin.newHere}{" "}
+                  <Link to="/signup" className="auth-inline-link">
+                    {copy.auth.signin.createAccount}
+                  </Link>
+                </p>
               </div>
 
-              <div className="mb-3 position-relative">
-                <input
-                  type={passwordVisible ? "password" : "text"}
-                  className={`form-control ${
-                    errors.password ? "is-invalid" : ""
-                  }`}
-                  placeholder="Password"
-                  {...register("password", {
-                    required: "Password is required",
-                    minLength: {
-                      value: 8,
-                      message: "Minimum password length is 8",
-                    },
-                  })}
-                  onKeyUp={() => trigger("password")}
-                />
-                <i
-                  className={`fas ${
-                    passwordVisible ? "fa-eye-slash" : "fa-eye"
-                  } position-absolute top-50 end-0 me-3 translate-middle-y text-muted`}
-                  style={{ cursor: "pointer" }}
-                  onClick={togglePasswordVisibility}
-                />
-                {errors.password && (
-                  <div className="invalid-feedback">
-                    {errors.password.message}
-                  </div>
-                )}
-              </div>
+              <form className="auth-form" onSubmit={handleSubmit(logIn)} noValidate>
+                <div className="auth-field-group">
+                  <label htmlFor="signin-username">{copy.auth.signin.username}</label>
+                  <input
+                    id="signin-username"
+                    type="text"
+                    className={errors.username ? "invalid" : ""}
+                    placeholder={copy.auth.signin.usernamePlaceholder}
+                    {...register("username", {
+                      required: copy.auth.validation.usernameRequired,
+                      minLength: {
+                        value: 3,
+                        message: copy.auth.validation.usernameLength,
+                      },
+                    })}
+                    onKeyUp={() => trigger("username")}
+                  />
+                  {errors.username && (
+                    <span className="auth-field-error">{errors.username.message}</span>
+                  )}
+                </div>
 
-              <button type="submit" className="btn btn-primary w-100">
-                Login
-              </button>
-            </form>
-          </>
-        )}
+                <div className="auth-field-group">
+                  <label htmlFor="signin-password">{copy.auth.signin.password}</label>
+                  <div className="auth-password-shell">
+                    <input
+                      id="signin-password"
+                      type={passwordVisible ? "text" : "password"}
+                      className={errors.password ? "invalid" : ""}
+                      placeholder={copy.auth.signin.passwordPlaceholder}
+                      {...register("password", {
+                        required: copy.auth.validation.passwordRequired,
+                        minLength: {
+                          value: 8,
+                          message: copy.auth.validation.passwordLength,
+                        },
+                      })}
+                      onKeyUp={() => trigger("password")}
+                    />
+                    <button
+                      type="button"
+                      className="auth-password-toggle"
+                      onClick={togglePasswordVisibility}
+                    >
+                      {passwordVisible
+                        ? copy.auth.signin.hide
+                        : copy.auth.signin.show}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <span className="auth-field-error">{errors.password.message}</span>
+                  )}
+                </div>
+
+                <div className="auth-subcopy">{copy.auth.signin.localNote}</div>
+
+                {formError && <div className="auth-form-error">{formError}</div>}
+
+                <button type="submit" className="auth-submit-button">
+                  {copy.auth.signin.submit}
+                </button>
+              </form>
+            </>
+          )}
+        </section>
       </div>
     </div>
   );
-}
+};
 
 export default SignIn;
+

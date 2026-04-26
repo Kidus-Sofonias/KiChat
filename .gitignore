@@ -1,0 +1,8 @@
+backend-dev.log
+frontend-dev.log
+backend-3001.log
+Backend/live-backend*.log
+start-backend-3001.ps1
+preview-*.png
+Backend/data/local-store.json
+Backend/uploads/

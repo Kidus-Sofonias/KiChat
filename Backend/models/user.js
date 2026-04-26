@@ -19,6 +19,11 @@ const User = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    avatar_seed: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: "byte-bot",
+    },
   },
   {
     timestamps: false, // Set to true if you want createdAt/updatedAt

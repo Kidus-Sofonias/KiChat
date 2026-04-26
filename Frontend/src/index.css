@@ -1,0 +1,247 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap");
+
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page-text: #eef5ff;
+  --page-muted: #97aacd;
+  --page-muted-strong: #b6c7e3;
+  --page-border: rgba(154, 191, 255, 0.16);
+  --page-border-strong: rgba(122, 195, 255, 0.32);
+  --page-surface: rgba(9, 17, 35, 0.7);
+  --page-surface-strong: rgba(13, 23, 43, 0.86);
+  --page-surface-soft: rgba(255, 255, 255, 0.05);
+  --page-shadow: 0 34px 90px rgba(2, 8, 22, 0.34);
+  --accent-primary: #74c2ff;
+  --accent-secondary: #5c83ff;
+  --accent-soft: rgba(116, 194, 255, 0.18);
+  --accent-strong-soft: rgba(92, 131, 255, 0.2);
+  --app-gradient:
+    radial-gradient(circle at top left, rgba(83, 132, 255, 0.24), transparent 28%),
+    radial-gradient(circle at 80% 15%, rgba(68, 204, 255, 0.18), transparent 22%),
+    radial-gradient(circle at bottom right, rgba(255, 138, 88, 0.12), transparent 24%),
+    linear-gradient(140deg, #040915 0%, #091225 36%, #07101e 100%);
+  --nav-surface: rgba(10, 18, 34, 0.74);
+  --nav-text: #f4f8ff;
+  --nav-text-muted: rgba(226, 236, 255, 0.72);
+  --card-highlight: rgba(255, 255, 255, 0.08);
+  --footer-surface: rgba(8, 15, 28, 0.7);
+  --orbit-glow: rgba(116, 194, 255, 0.42);
+  --robot-tint: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --page-text: #142641;
+  --page-muted: #61738f;
+  --page-muted-strong: #41566f;
+  --page-border: rgba(120, 146, 190, 0.2);
+  --page-border-strong: rgba(92, 131, 255, 0.28);
+  --page-surface: rgba(255, 255, 255, 0.62);
+  --page-surface-strong: rgba(255, 255, 255, 0.84);
+  --page-surface-soft: rgba(255, 255, 255, 0.54);
+  --page-shadow: 0 28px 80px rgba(76, 97, 142, 0.18);
+  --accent-primary: #3778ff;
+  --accent-secondary: #835cff;
+  --accent-soft: rgba(55, 120, 255, 0.14);
+  --accent-strong-soft: rgba(131, 92, 255, 0.14);
+  --app-gradient:
+    radial-gradient(circle at top left, rgba(105, 149, 255, 0.22), transparent 30%),
+    radial-gradient(circle at 82% 12%, rgba(119, 226, 255, 0.2), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(255, 178, 126, 0.18), transparent 24%),
+    linear-gradient(140deg, #eef6ff 0%, #fdfcff 45%, #eef2ff 100%);
+  --nav-surface: rgba(255, 255, 255, 0.68);
+  --nav-text: #13243f;
+  --nav-text-muted: rgba(40, 58, 84, 0.72);
+  --card-highlight: rgba(255, 255, 255, 0.72);
+  --footer-surface: rgba(255, 255, 255, 0.58);
+  --orbit-glow: rgba(55, 120, 255, 0.24);
+  --robot-tint: rgba(255, 255, 255, 0.42);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+  font-family: "Manrope", sans-serif;
+  color: var(--page-text);
+  background: var(--app-gradient);
+  transition: background 240ms ease, color 240ms ease;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+#root {
+  position: relative;
+  isolation: isolate;
+}
+
+.cosmic-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+  background: var(--app-gradient);
+}
+
+.cosmic-nebula,
+.cosmic-stars,
+.cosmic-grid,
+.cosmic-scanline {
+  position: absolute;
+  inset: 0;
+}
+
+.cosmic-nebula {
+  filter: blur(12px);
+  opacity: 0.78;
+  animation: cosmicFloat 16s ease-in-out infinite;
+}
+
+.cosmic-nebula-left {
+  background:
+    radial-gradient(circle at 25% 25%, rgba(102, 163, 255, 0.28), transparent 24%),
+    radial-gradient(circle at 40% 60%, rgba(76, 214, 255, 0.18), transparent 22%);
+}
+
+.cosmic-nebula-right {
+  background:
+    radial-gradient(circle at 75% 20%, rgba(255, 152, 112, 0.16), transparent 22%),
+    radial-gradient(circle at 70% 72%, rgba(123, 87, 255, 0.18), transparent 26%);
+  animation-delay: -8s;
+}
+
+.cosmic-stars {
+  background-image:
+    radial-gradient(circle at 10% 18%, rgba(255, 255, 255, 0.92) 0 1px, transparent 1.2px),
+    radial-gradient(circle at 28% 38%, rgba(255, 255, 255, 0.78) 0 1.1px, transparent 1.3px),
+    radial-gradient(circle at 56% 22%, rgba(255, 255, 255, 0.86) 0 1px, transparent 1.3px),
+    radial-gradient(circle at 78% 32%, rgba(255, 255, 255, 0.74) 0 1px, transparent 1.2px),
+    radial-gradient(circle at 18% 74%, rgba(255, 255, 255, 0.84) 0 1px, transparent 1.3px),
+    radial-gradient(circle at 46% 66%, rgba(255, 255, 255, 0.68) 0 1px, transparent 1.2px),
+    radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.8) 0 1px, transparent 1.3px);
+  animation: starDrift 28s linear infinite;
+}
+
+.cosmic-stars-secondary {
+  opacity: 0.5;
+  transform: scale(1.12);
+  filter: blur(0.2px);
+  animation-duration: 36s;
+  animation-direction: reverse;
+}
+
+.cosmic-grid {
+  opacity: 0.16;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 90px 90px;
+  mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.78), transparent 78%);
+}
+
+.cosmic-scanline {
+  background: linear-gradient(180deg, transparent 0%, rgba(255, 255, 255, 0.06) 50%, transparent 100%);
+  transform: translateY(-100%);
+  opacity: 0.22;
+  animation: scanSweep 14s ease-in-out infinite;
+}
+
+.glass-panel,
+.glass-chip,
+.glass-button {
+  border: 1px solid var(--page-border);
+  background: var(--page-surface);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: var(--page-shadow);
+}
+
+@keyframes cosmicFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -18px, 0) scale(1.04);
+  }
+}
+
+@keyframes starDrift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(-18px, 14px, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes scanSweep {
+  0%,
+  100% {
+    transform: translateY(-120%);
+  }
+  50% {
+    transform: translateY(120%);
+  }
+}
+
+@keyframes floatSoft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulseGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(116, 194, 255, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(116, 194, 255, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

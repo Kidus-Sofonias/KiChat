@@ -21,5 +21,4 @@ router.get("/check", authMiddleware, checkUser);
 
 router.get("/all", authMiddleware, getAllUsers);
 
-
 module.exports = router;

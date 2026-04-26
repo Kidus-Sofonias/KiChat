@@ -1,8 +1,15 @@
 import axios from "axios";
 
+const defaultApiBaseUrl =
+  typeof window !== "undefined" &&
+  ["127.0.0.1", "localhost"].includes(window.location.hostname)
+    ? `http://${window.location.hostname}:3001`
+    : "http://localhost:3000";
+
+const apiBaseUrl = import.meta.env.VITE_API_URL || defaultApiBaseUrl;
+
 const instance = axios.create({
-  // baseURL: "https://kichat.onrender.com",
-  baseURL: "http://localhost:3000",
+  baseURL: apiBaseUrl,
   withCredentials: true,
 });
 
@@ -13,13 +20,5 @@ instance.interceptors.request.use((config) => {
   }
   return config;
 });
-
-instance.interceptors.response.use(
-  (res) => res,
-  (err) => {
-    console.error("API Error: ", err.response?.data || err.message);
-    return Promise.reject(err);
-  }
-);
 
 export default instance;
