@@ -307,7 +307,7 @@ const mergeRecentUsers = (currentUsers, message, currentUsername) => {
   ];
 };
 
-const Chat = ({ logOut }) => {
+const Chat = ({ logOut, browserSupport }) => {
   const [user] = useContext(userProvider);
   const navigate = useNavigate();
   const { copy, theme, toggleTheme } = usePreferences();
@@ -419,7 +419,10 @@ const Chat = ({ logOut }) => {
   const stopRecording = () => {
     if (mediaRecorderRef.current?.state && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
+      return;
     }
+
+    cancelRecording();
   };
 
   const cancelRecording = () => {
@@ -589,8 +592,12 @@ const Chat = ({ logOut }) => {
     try {
       let sentMessage;
 
-      if (file) {
-        const formData = new FormData();
+        if (file) {
+          if (!supportsFileUpload) {
+            throw new Error("File uploads are not supported in this browser.");
+          }
+
+          const formData = new FormData();
         formData.append("file", file);
         formData.append("sender", user.user_name);
         formData.append("receiver", selectedUser.user_name);
@@ -621,9 +628,11 @@ const Chat = ({ logOut }) => {
       resetComposer();
     } catch (error) {
       setComposerNotice(
-        error.response?.data?.details ||
-          error.response?.data?.error ||
-          copy.chat.messageFailed
+        error.message === "File uploads are not supported in this browser."
+          ? error.message
+          : error.response?.data?.details ||
+              error.response?.data?.error ||
+              copy.chat.messageFailed
       );
       console.error("Failed to send message:", error);
     } finally {
@@ -637,7 +646,7 @@ const Chat = ({ logOut }) => {
       return;
     }
 
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+    if (!supportsVoiceRecording) {
       setComposerNotice(copy.chat.recordingUnsupported);
       return;
     }
@@ -645,6 +654,10 @@ const Chat = ({ logOut }) => {
     try {
       clearAttachment();
       setComposerNotice("");
+
+      if (typeof window.MediaRecorder === "undefined") {
+        throw new Error("MediaRecorderUnavailable");
+      }
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeTypeCandidates = [
@@ -672,6 +685,12 @@ const Chat = ({ logOut }) => {
       };
 
       recorder.onstop = () => {
+        if (!recordingChunksRef.current.length) {
+          cancelRecording();
+          setComposerNotice(copy.chat.recordingFailed);
+          return;
+        }
+
         const blob = new Blob(recordingChunksRef.current, {
           type: recorder.mimeType || "audio/webm",
         });
@@ -692,6 +711,11 @@ const Chat = ({ logOut }) => {
         setPreviewFromFile(voiceNote);
       };
 
+      recorder.onerror = () => {
+        cancelRecording();
+        setComposerNotice(copy.chat.recordingFailed);
+      };
+
       recorder.start();
       recordingTimerRef.current = setInterval(
         () => setRecordingSeconds((current) => current + 1),
@@ -702,6 +726,8 @@ const Chat = ({ logOut }) => {
       setComposerNotice(
         error.name === "NotAllowedError"
           ? copy.chat.micDenied
+          : error.message === "MediaRecorderUnavailable"
+            ? copy.chat.recordingUnsupported
           : copy.chat.recordingFailed
       );
     }
@@ -954,6 +980,10 @@ const Chat = ({ logOut }) => {
 
   const sendDisabled =
     loading || isRecording || (!input.trim() && !file) || !selectedUser?.user_name;
+  const supportsVoiceRecording = browserSupport?.supportsVoiceRecording !== false;
+  const supportsFileUpload =
+    browserSupport?.supportsFormData !== false &&
+    browserSupport?.supportsFileReader !== false;
 
   const handleMobileChatsClick = () => {
     const offcanvasElement = document.getElementById("sidebarOffcanvas");
@@ -967,7 +997,7 @@ const Chat = ({ logOut }) => {
   return (
     <div className="chat-page">
       <Lightbox
-        open={lightboxIndex >= 0}
+        open={browserSupport?.shouldUseLegacyExperience ? false : lightboxIndex >= 0}
         close={() => setLightboxIndex(-1)}
         slides={lightboxImages}
         index={lightboxIndex}
@@ -1286,6 +1316,7 @@ const Chat = ({ logOut }) => {
                 type="button"
                 className="chat-mobile-chip"
                 onClick={() => fileInputRef.current?.click()}
+                disabled={!supportsFileUpload}
               >
                 <FaPaperclip />
                 <span>{copy.chat.attachMedia || copy.chat.attach || copy.chat.attachment}</span>
@@ -1294,7 +1325,7 @@ const Chat = ({ logOut }) => {
                 type="button"
                 className="chat-mobile-chip"
                 onClick={isRecording ? stopRecording : startRecording}
-                disabled={!selectedUser}
+                disabled={!selectedUser || !supportsVoiceRecording}
               >
                 {isRecording ? <FaStop /> : <FaMicrophone />}
                 <span>{copy.chat.voiceNote || copy.chat.recordingLabel}</span>
@@ -1309,15 +1340,19 @@ const Chat = ({ logOut }) => {
                 hidden
                 accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.zip,.txt"
                 onChange={handleFileChange}
+                disabled={!supportsFileUpload}
               />
-              <label htmlFor="fileInput" className="chat-icon-button">
+              <label
+                htmlFor="fileInput"
+                className={`chat-icon-button ${!supportsFileUpload ? "disabled-label" : ""}`}
+              >
                 <FaPaperclip />
               </label>
               <button
                 type="button"
                 className={`chat-icon-button ${isRecording ? "recording" : ""}`}
                 onClick={isRecording ? stopRecording : startRecording}
-                disabled={!selectedUser}
+                disabled={!selectedUser || !supportsVoiceRecording}
               >
                 {isRecording ? <FaStop /> : <FaMicrophone />}
               </button>
@@ -1390,6 +1425,7 @@ const Chat = ({ logOut }) => {
           type="button"
           className="chat-mobile-dock-item chat-mobile-dock-item-accent"
           onClick={() => fileInputRef.current?.click()}
+          disabled={!supportsFileUpload}
         >
           <FaPaperclip />
           <span>{copy.chat.attach || copy.chat.attachment}</span>

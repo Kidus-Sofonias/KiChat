@@ -1,1 +1,342 @@
-@import "../Auth/Auth.css";
+:root {
+  --home-card-border: 1px solid var(--page-border);
+}
+
+.home-screen {
+  width: 100%;
+}
+
+.home-shell {
+  display: grid;
+  gap: 20px;
+}
+
+.home-hero,
+.home-metric-grid,
+.home-feature-grid,
+.home-panel,
+.home-step-grid,
+.home-avatar-grid {
+  border: var(--home-card-border);
+  border-radius: 28px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+  box-shadow: var(--page-shadow);
+  backdrop-filter: blur(18px);
+}
+
+.home-hero {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  padding: 28px;
+  gap: 24px;
+}
+
+.home-kicker,
+.home-panel-kicker {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: var(--home-card-border);
+  color: var(--page-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.home-hero-copy h1 {
+  margin-top: 16px;
+  margin-bottom: 14px;
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  line-height: 1.05;
+}
+
+.home-hero-copy p {
+  color: var(--page-muted);
+  max-width: 64ch;
+}
+
+.home-hero-actions {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.home-primary-button,
+.home-secondary-button {
+  border: 1px solid var(--page-border-strong);
+  border-radius: 999px;
+  padding: 12px 18px;
+  text-decoration: none;
+  color: var(--page-text);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.home-primary-button {
+  border: none;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  color: #fff;
+}
+
+.home-hero-support {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  padding-left: 0;
+  list-style: none;
+}
+
+.home-hero-support li {
+  border: var(--home-card-border);
+  border-radius: 16px;
+  padding: 10px 12px;
+  color: var(--page-muted);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.home-hero-visual {
+  display: grid;
+  place-items: center;
+}
+
+.home-orbit {
+  width: min(380px, 100%);
+  aspect-ratio: 1 / 1;
+  position: relative;
+}
+
+.home-orbit-ring,
+.home-orbit-ring-alt {
+  position: absolute;
+  inset: 10%;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+}
+
+.home-orbit-ring-alt {
+  inset: 20%;
+}
+
+.home-orbit-center {
+  position: absolute;
+  inset: 26%;
+  border-radius: 50%;
+  overflow: hidden;
+  border: var(--home-card-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.home-orbit-center img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-orbit-chip {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 8px 10px;
+  background: rgba(12, 20, 35, 0.8);
+  border: var(--home-card-border);
+}
+
+.home-orbit-chip img {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+
+.home-orbit-chip.top {
+  top: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.home-orbit-chip.left {
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.home-orbit-chip.bottom {
+  bottom: 4%;
+  right: 2%;
+}
+
+.home-metric-grid {
+  padding: 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.home-metric-card {
+  border: var(--home-card-border);
+  border-radius: 20px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.home-metric-card strong {
+  font-size: 1.6rem;
+}
+
+.home-metric-card p {
+  margin: 6px 0 0;
+  color: var(--page-muted);
+}
+
+.home-feature-grid,
+.home-step-grid,
+.home-avatar-grid {
+  padding: 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.home-feature-card,
+.home-step-card,
+.home-avatar-card {
+  border: var(--home-card-border);
+  border-radius: 20px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.home-feature-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(115, 190, 255, 0.16);
+  display: grid;
+  place-items: center;
+  margin-bottom: 10px;
+}
+
+.home-feature-card p,
+.home-step-card p,
+.home-avatar-card p {
+  color: var(--page-muted);
+  margin-top: 8px;
+}
+
+.home-panel {
+  padding: 24px;
+}
+
+.home-panel-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 16px;
+}
+
+.home-panel h2 {
+  margin-top: 16px;
+}
+
+.home-panel-content > p {
+  color: var(--page-muted);
+}
+
+.home-panel-list {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.home-panel-list-item {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  border: var(--home-card-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.home-panel-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(115, 190, 255, 0.14);
+  flex-shrink: 0;
+}
+
+.home-panel-card {
+  border: var(--home-card-border);
+  border-radius: 20px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.home-panel-card ul {
+  margin-top: 12px;
+  padding-left: 18px;
+  color: var(--page-muted);
+}
+
+.home-text-link {
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+
+.home-step-number {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  margin-bottom: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(115, 190, 255, 0.14);
+}
+
+.home-avatar-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 1040px) {
+  .home-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .home-panel-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .home-shell {
+    gap: 14px;
+  }
+
+  .home-hero,
+  .home-panel,
+  .home-feature-grid,
+  .home-step-grid,
+  .home-avatar-grid,
+  .home-metric-grid {
+    padding: 14px;
+    border-radius: 22px;
+  }
+
+  .home-hero-support {
+    grid-template-columns: 1fr;
+  }
+
+  .home-orbit-chip span {
+    display: none;
+  }
+}

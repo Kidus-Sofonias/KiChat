@@ -1,16 +1,16 @@
 .space-nav-shell {
-  position: fixed;
-  top: 18px;
+  position: sticky;
+  top: 8px;
   left: 0;
   right: 0;
   z-index: 40;
-  padding: 0 18px;
+  padding: 8px 18px 0;
 }
 
 .space-nav {
   width: min(1180px, 100%);
   margin: 0 auto;
-  padding: 14px 18px;
+  padding: 12px 16px;
   border-radius: 26px;
   border: 1px solid var(--page-border);
   background: var(--nav-surface);
@@ -166,13 +166,14 @@
 
 @media (max-width: 720px) {
   .space-nav-shell {
-    top: 12px;
+    top: 0;
     padding: 0 12px;
   }
 
   .space-nav {
-    padding: 12px;
+    padding: 10px;
     gap: 12px;
+    border-radius: 20px;
   }
 
   .space-nav-brand-copy span,

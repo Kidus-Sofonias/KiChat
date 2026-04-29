@@ -11,7 +11,7 @@
   --telegram-bubble-own: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   --telegram-bubble-other: rgba(255, 255, 255, 0.08);
   --telegram-shadow: var(--page-shadow);
-  --telegram-sidebar-width: 360px;
+  --telegram-sidebar-width: 332px;
   --telegram-radius-lg: 28px;
   --telegram-radius-md: 22px;
   --telegram-radius-sm: 16px;
@@ -39,12 +39,14 @@
 .chat-shell {
   display: flex;
   min-height: 100vh;
-  padding: 20px;
-  gap: 20px;
+  padding: 14px;
+  gap: 14px;
+  align-items: stretch;
 }
 
 .chat-sidebar {
   width: min(var(--telegram-sidebar-width), 100%);
+  flex: 0 0 var(--telegram-sidebar-width);
   background: var(--telegram-panel);
   border: 1px solid var(--telegram-border);
   border-radius: var(--telegram-radius-lg);
@@ -223,6 +225,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   border-radius: var(--telegram-radius-lg);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
@@ -238,10 +241,10 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  padding: 18px 22px;
+  gap: 12px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--telegram-border);
-  background: rgba(255, 255, 255, 0.04);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025));
 }
 
 .chat-topbar-left,
@@ -255,13 +258,14 @@
 
 .chat-topbar-right {
   margin-left: auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  gap: 8px;
 }
 
 .chat-contact-chip,
 .chat-current-user {
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -274,8 +278,8 @@
 
 .chat-contact-avatar,
 .chat-current-user-avatar {
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   object-fit: cover;
 }
@@ -327,8 +331,9 @@
 
 .chat-feed {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 26px;
+  padding: 18px 20px;
   background:
     radial-gradient(circle at 20% 20%, rgba(42, 171, 238, 0.12), transparent 18%),
     radial-gradient(circle at 80% 30%, rgba(91, 196, 255, 0.08), transparent 18%),
@@ -610,13 +615,13 @@
 }
 
 .chat-composer {
-  padding: 18px 22px 24px;
+  padding: 12px 14px 14px;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 14px;
+  gap: 10px;
   border-top: 1px solid var(--telegram-border);
-  background: rgba(255, 255, 255, 0.04);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.05));
 }
 
 .chat-mobile-composer-bar {
@@ -654,8 +659,8 @@
   flex: 1;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--telegram-border);
-  border-radius: 28px;
-  padding: 14px 18px;
+  border-radius: 20px;
+  padding: 10px 14px;
 }
 
 .chat-input-context {
@@ -696,8 +701,8 @@
 }
 
 .chat-send-button {
-  width: 58px;
-  height: 58px;
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--telegram-accent), var(--telegram-accent-2));
@@ -706,10 +711,17 @@
 }
 
 .chat-send-button:disabled,
-.chat-icon-button:disabled {
+.chat-icon-button:disabled,
+.chat-mobile-chip:disabled,
+.chat-mobile-dock-item:disabled {
   opacity: 0.5;
   transform: none;
   cursor: not-allowed;
+}
+
+.disabled-label {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .chat-mobile-dock {
@@ -721,7 +733,7 @@
 }
 
 .composer-preview-shell {
-  padding: 0 22px 10px;
+  padding: 0 14px 10px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -892,18 +904,20 @@
   }
 
   .chat-topbar-right {
-    width: 100%;
-    justify-content: space-between;
+    width: auto;
+    justify-content: flex-end;
+    flex-wrap: wrap;
   }
 
   .chat-sidebar {
-    width: 320px;
+    width: 286px;
+    flex-basis: 286px;
   }
 }
 
 @media (max-width: 991px) {
   .chat-shell {
-    padding: 12px;
+    padding: 8px;
   }
 
   .chat-panel {
@@ -941,23 +955,27 @@
   }
 
   .chat-page {
-    padding-bottom: 84px;
+    padding-bottom: 76px;
   }
 
   .chat-feed,
   .chat-composer,
   .composer-preview-shell {
-    padding-left: 16px;
-    padding-right: 16px;
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   .chat-topbar {
-    padding: 14px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    padding: 10px 12px;
+    backdrop-filter: blur(14px);
   }
 
   .chat-topbar-right {
     width: auto;
-    gap: 8px;
+    gap: 6px;
     margin-left: 0;
   }
 
@@ -966,12 +984,18 @@
   }
 
   .chat-contact-chip {
-    padding: 8px 12px;
-    border-radius: 22px;
+    padding: 6px 10px;
+    border-radius: 18px;
+    gap: 8px;
+  }
+
+  .chat-contact-avatar {
+    width: 34px;
+    height: 34px;
   }
 
   .message-bubble {
-    max-width: 88%;
+    max-width: 92%;
   }
 
   .chat-mobile-composer-bar {
@@ -980,14 +1004,14 @@
 
   .chat-composer {
     position: sticky;
-    bottom: 70px;
+    bottom: 62px;
     z-index: 5;
-    margin: 0 12px 16px;
-    padding: 14px;
-    border-radius: 26px;
-    background: rgba(10, 18, 34, 0.78);
+    margin: 0 8px 8px;
+    padding: 10px;
+    border-radius: 20px;
+    background: rgba(10, 18, 34, 0.84);
     backdrop-filter: blur(24px);
-    box-shadow: 0 26px 48px rgba(3, 8, 20, 0.26);
+    box-shadow: 0 16px 30px rgba(3, 8, 20, 0.24);
   }
 
   .chat-input-shell {
@@ -1002,36 +1026,38 @@
   .chat-send-button {
     order: 3;
     margin-left: auto;
+    width: 44px;
+    height: 44px;
   }
 
   .chat-mobile-dock {
     position: fixed;
-    left: 10px;
-    right: 10px;
-    bottom: max(10px, env(safe-area-inset-bottom));
+    left: 8px;
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
     z-index: 20;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 8px;
-    padding: 10px;
-    border-radius: 28px;
-    background: rgba(8, 15, 28, 0.78);
+    gap: 6px;
+    padding: 8px;
+    border-radius: 20px;
+    background: rgba(8, 15, 28, 0.88);
     border: 1px solid rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(24px);
-    box-shadow: 0 20px 50px rgba(3, 8, 20, 0.32);
+    box-shadow: 0 14px 30px rgba(3, 8, 20, 0.3);
   }
 
   .chat-mobile-dock-item {
     border: none;
-    border-radius: 18px;
-    padding: 10px 6px;
+    border-radius: 14px;
+    padding: 8px 6px;
     background: transparent;
     color: var(--telegram-text);
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 6px;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
   }
 
   .chat-mobile-dock-item-accent {
@@ -1062,8 +1088,8 @@
   }
 
   .chat-composer {
-    gap: 10px;
-    bottom: 76px;
+    gap: 8px;
+    bottom: 66px;
   }
 
   .chat-mobile-dock {
@@ -1081,7 +1107,7 @@
   }
 
   .chat-mobile-chip {
-    padding: 10px 12px;
+    padding: 8px 10px;
   }
 
   .message-link-card,

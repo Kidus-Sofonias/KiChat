@@ -10,7 +10,14 @@ const defaultPreferences = {
 };
 
 const loadStoredPreferences = () => {
-  const savedPreferences = localStorage.getItem(PREFERENCES_STORAGE_KEY);
+  let savedPreferences = null;
+
+  try {
+    savedPreferences = localStorage.getItem(PREFERENCES_STORAGE_KEY);
+  } catch (error) {
+    console.error("Failed to read preferences from storage:", error);
+    return defaultPreferences;
+  }
 
   if (!savedPreferences) {
     return defaultPreferences;
@@ -34,7 +41,12 @@ export const PreferencesProvider = ({ children }) => {
   );
 
   useEffect(() => {
-    localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
+    try {
+      localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
+    } catch (error) {
+      console.error("Failed to save preferences to storage:", error);
+    }
+
     document.documentElement.dataset.theme = preferences.theme;
     document.documentElement.lang = preferences.language;
   }, [preferences]);
