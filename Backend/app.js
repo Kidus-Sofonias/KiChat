@@ -27,21 +27,31 @@ const configuredProductionOrigins = [
   process.env.FRONTEND_URL,
   process.env.ALLOWED_ORIGINS,
   "https://kichat.netlify.app",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
 ]
   .flatMap((value) => (value ? value.split(",") : []))
-  .map((value) => value.trim())
+  .map((value) => value.trim().replace(/\/+$/, ""))
   .filter(Boolean);
 
 const productionOrigins = new Set(configuredProductionOrigins);
+const isAllowedProductionOrigin = (origin = "") => {
+  const normalizedOrigin = origin.trim().replace(/\/+$/, "");
+
+  return (
+    productionOrigins.has(normalizedOrigin) ||
+    /^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(normalizedOrigin)
+  );
+};
 
 const corsOptions = {
   origin:
     process.env.NODE_ENV === "production"
       ? (origin, callback) => {
-          if (!origin || productionOrigins.has(origin)) {
+          if (!origin || isAllowedProductionOrigin(origin)) {
             callback(null, true);
           } else {
-            callback(new Error("Not allowed by CORS"));
+            callback(null, false);
           }
         }
       : true,

@@ -32,14 +32,16 @@ import UserSidebar from "../../Components/UserSideBar/UserSideBar";
 import { buildAvatarUrl } from "../../Utils/avatarOptions";
 import "./Chat.css";
 
+const normalizeUrl = (value = "") => value.replace(/\/+$/, "");
+
 const defaultApiUrl =
   typeof window !== "undefined" &&
   ["127.0.0.1", "localhost"].includes(window.location.hostname)
     ? `http://${window.location.hostname}:3001`
-    : "http://localhost:3000";
+    : "";
 
-const API_URL = import.meta.env.VITE_API_URL || defaultApiUrl;
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || API_URL;
+const API_URL = normalizeUrl(import.meta.env.VITE_API_URL || defaultApiUrl);
+const SOCKET_URL = normalizeUrl(import.meta.env.VITE_SOCKET_URL || API_URL);
 const URL_PATTERN = /((https?:\/\/|www\.)[^\s<]+)/gi;
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp", "svg"]);
 const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "m4v", "mkv"]);
