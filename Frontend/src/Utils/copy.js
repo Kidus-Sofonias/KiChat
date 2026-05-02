@@ -174,11 +174,11 @@ export const APP_COPY = {
         show: "Show",
         hide: "Hide",
         localNote:
-          "Local preview note: if an older account stops working after a reset, create a fresh one and you will be signed in immediately.",
+          "Use the same credentials you signed up with. If an account suddenly stops working, the backend storage may have been reset and should be checked.",
         submit: "Sign in to chat",
         loading: "Signing you in...",
         invalidCredentials:
-          "That username and password did not match. If this is a fresh local preview, create a new account first.",
+          "That username and password did not match. If this account worked recently, check the backend storage and database connection.",
         genericError: "We could not sign you in right now. Please try again.",
       },
       signup: {
@@ -263,6 +263,8 @@ export const APP_COPY = {
       stop: "Stop",
       cancel: "Cancel",
       messageFailed: "Message could not be sent.",
+      deleteMessage: "Delete message",
+      deleteFailed: "Message could not be deleted.",
       fileUnavailable: "File unavailable",
       download: "Download",
       downloadVideo: "Download video",
@@ -486,11 +488,11 @@ export const APP_COPY = {
         show: "Onesha",
         hide: "Ficha",
         localNote:
-          "Kumbuka ya local preview: kama akaunti ya zamani haifanyi kazi baada ya reset, tengeneza mpya kisha utaingia mara moja.",
+          "Tumia taarifa zile ulizojisajili nazo. Akaunti ikiacha kufanya kazi ghafla, hifadhi ya backend au database inapaswa kuchunguzwa.",
         submit: "Ingia kwenye chat",
         loading: "Tunakuingiza...",
         invalidCredentials:
-          "Jina au nenosiri halikulingana. Kama hii ni local preview mpya, tengeneza akaunti kwanza.",
+          "Jina au nenosiri halikulingana. Ikiwa akaunti hii ilifanya kazi hivi karibuni, kagua hifadhi ya backend na muunganisho wa database.",
         genericError: "Hatujaweza kukuingiza sasa hivi. Tafadhali jaribu tena.",
       },
       signup: {
@@ -577,6 +579,8 @@ export const APP_COPY = {
       stop: "Simamisha",
       cancel: "Ghairi",
       messageFailed: "Ujumbe haukutumwa.",
+      deleteMessage: "Futa ujumbe",
+      deleteFailed: "Ujumbe haukufutwa.",
       fileUnavailable: "Faili haipatikani",
       download: "Pakua",
       downloadVideo: "Pakua video",
@@ -801,11 +805,11 @@ export const APP_COPY = {
         show: "Voir",
         hide: "Masquer",
         localNote:
-          "Note locale: si un ancien compte ne marche plus apres une reinitialisation, creez-en un nouveau.",
+          "Utilisez les memes identifiants qu'a l'inscription. Si un compte cesse soudainement de marcher, verifiez le stockage backend et la base de donnees.",
         submit: "Se connecter au chat",
         loading: "Connexion en cours...",
         invalidCredentials:
-          "Le pseudo et le mot de passe ne correspondent pas. Si c'est un nouvel apercu local, creez un compte d'abord.",
+          "Le pseudo et le mot de passe ne correspondent pas. Si ce compte marchait recemment, verifiez le stockage backend et la connexion a la base.",
         genericError: "Connexion impossible pour le moment. Reessayez.",
       },
       signup: {
@@ -893,6 +897,8 @@ export const APP_COPY = {
       stop: "Arreter",
       cancel: "Annuler",
       messageFailed: "Le message n'a pas pu etre envoye.",
+      deleteMessage: "Supprimer le message",
+      deleteFailed: "Le message n'a pas pu etre supprime.",
       fileUnavailable: "Fichier indisponible",
       download: "Telecharger",
       downloadVideo: "Telecharger la video",

@@ -15,6 +15,8 @@ const parseBoolean = (value, fallback = false) => {
 };
 
 const createNoopEnsureDatabaseExists = () => async () => {};
+const getFirstDefined = (...values) =>
+  values.find((value) => value !== undefined && value !== null && value !== "");
 
 const buildSequelizeOptions = ({
   host,
@@ -32,13 +34,43 @@ const buildSequelizeOptions = ({
 });
 
 const getPostgresConfig = () => {
-  const databaseUrl = process.env.DATABASE_URL;
-  const host = process.env.POSTGRES_HOST || process.env.PGHOST;
-  const port = process.env.POSTGRES_PORT || process.env.PGPORT || 5432;
-  const database = process.env.POSTGRES_DB || process.env.PGDATABASE;
-  const username = process.env.POSTGRES_USER || process.env.PGUSER;
-  const password = process.env.POSTGRES_PASSWORD || process.env.PGPASSWORD;
-  const sslEnabled = parseBoolean(process.env.DB_SSL, false);
+  const databaseUrl = getFirstDefined(
+    process.env.DATABASE_URL,
+    process.env.SUPABASE_DATABASE_URL,
+    process.env.SUPABASE_DB_URL
+  );
+  const host = getFirstDefined(
+    process.env.SUPABASE_DB_HOST,
+    process.env.POSTGRES_HOST,
+    process.env.PGHOST
+  );
+  const port = getFirstDefined(
+    process.env.SUPABASE_DB_PORT,
+    process.env.POSTGRES_PORT,
+    process.env.PGPORT,
+    5432
+  );
+  const database = getFirstDefined(
+    process.env.SUPABASE_DB_NAME,
+    process.env.POSTGRES_DB,
+    process.env.PGDATABASE
+  );
+  const username = getFirstDefined(
+    process.env.SUPABASE_DB_USER,
+    process.env.POSTGRES_USER,
+    process.env.PGUSER
+  );
+  const password = getFirstDefined(
+    process.env.SUPABASE_DB_PASSWORD,
+    process.env.POSTGRES_PASSWORD,
+    process.env.PGPASSWORD
+  );
+  const isSupabaseConfig = Boolean(
+    process.env.SUPABASE_DATABASE_URL ||
+      process.env.SUPABASE_DB_URL ||
+      process.env.SUPABASE_DB_HOST
+  );
+  const sslEnabled = parseBoolean(process.env.DB_SSL, isSupabaseConfig);
   const dialectOptions = sslEnabled
     ? {
         ssl: {
@@ -52,7 +84,7 @@ const getPostgresConfig = () => {
     return {
       configured: true,
       dialect: "postgres",
-      label: "PostgreSQL",
+      label: isSupabaseConfig ? "Supabase Postgres" : "PostgreSQL",
       sequelize: new Sequelize(
         databaseUrl,
         buildSequelizeOptions({
@@ -69,7 +101,7 @@ const getPostgresConfig = () => {
     return {
       configured: true,
       dialect: "postgres",
-      label: "PostgreSQL",
+      label: isSupabaseConfig ? "Supabase Postgres" : "PostgreSQL",
       sequelize: new Sequelize(
         database,
         username,
@@ -89,15 +121,35 @@ const getPostgresConfig = () => {
 };
 
 const getLegacyMysqlConfig = () => {
-  const host = process.env.AWS_RDS_HOST || process.env.MYSQL_HOST;
-  const port = process.env.AWS_RDS_PORT || process.env.MYSQL_PORT;
-  const database = process.env.AWS_RDS_DB_NAME || process.env.MYSQL_DB;
-  const username = process.env.AWS_RDS_USERNAME || process.env.MYSQL_USER;
-  const password = process.env.AWS_RDS_PASSWORD || process.env.MYSQL_PASS;
+  const candidates = [
+    {
+      label: "MySQL",
+      host: process.env.MYSQL_HOST,
+      port: process.env.MYSQL_PORT,
+      database: process.env.MYSQL_DB,
+      username: process.env.MYSQL_USER,
+      password: process.env.MYSQL_PASS,
+    },
+    {
+      label: "AWS RDS MySQL",
+      host: process.env.AWS_RDS_HOST,
+      port: process.env.AWS_RDS_PORT,
+      database: process.env.AWS_RDS_DB_NAME,
+      username: process.env.AWS_RDS_USERNAME,
+      password: process.env.AWS_RDS_PASSWORD,
+    },
+  ];
 
-  if (!host || !port || !database || !username || !password) {
+  const selectedCandidate = candidates.find(
+    ({ host, port, database, username, password }) =>
+      host && port && database && username && password
+  );
+
+  if (!selectedCandidate) {
     return null;
   }
+
+  const { host, port, database, username, password, label } = selectedCandidate;
 
   const ensureDatabaseExists = async () => {
     const connection = await mysql.createConnection({
@@ -114,7 +166,7 @@ const getLegacyMysqlConfig = () => {
   return {
     configured: true,
     dialect: "mysql",
-    label: "MySQL",
+    label,
     sequelize: new Sequelize(
       database,
       username,

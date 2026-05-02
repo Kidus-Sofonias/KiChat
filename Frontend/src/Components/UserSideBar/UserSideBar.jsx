@@ -17,11 +17,16 @@ const UserSidebar = ({
   const { copy } = usePreferences();
 
   useEffect(() => {
+    if (!currentUser?.user_name) {
+      setUsers([]);
+      return;
+    }
+
     axios
       .get("/api/users/all")
       .then((res) => setUsers(res.data))
       .catch((error) => console.error("Failed to fetch users:", error));
-  }, []);
+  }, [currentUser?.user_name]);
 
   const availableUsers = useMemo(
     () => users.filter((user) => user.user_name !== currentUser?.user_name),

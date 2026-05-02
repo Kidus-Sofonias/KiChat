@@ -9,6 +9,7 @@ const fs = require("fs");
 const userRoutes = require("./routes/userRoute");
 const messageRoutes = require("./routes/messageRoute");
 const db = require("./db/config");
+const store = require("./db/store");
 const jwtMiddleware = require("./middleWare/authMiddleware");
 
 // Load environment variables
@@ -87,6 +88,26 @@ io.on("connection", (socket) => {
 // Routes
 app.get("/", (req, res) => {
   res.send("🚀 Server is up and running!");
+});
+app.get("/api/health", async (req, res) => {
+  try {
+    const storage = await store.getStorageStatus();
+
+    res.json({
+      status: "ok",
+      storage,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+      storage: {
+        configured: db.isConfigured,
+        databaseDialect: db.databaseDialect,
+        databaseLabel: db.databaseLabel,
+      },
+    });
+  }
 });
 app.use("/api/users", userRoutes);
 app.use("/api/messages", jwtMiddleware, messageRoutes);
