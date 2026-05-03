@@ -109,6 +109,10 @@ function App() {
     root.classList.toggle("simple-backdrop", !browserSupport.supportsBackdropFilter);
   }, [browserSupport]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location.pathname]);
+
   return (
     <div className="app-container">
       <CosmicBackdrop browserSupport={browserSupport} />
