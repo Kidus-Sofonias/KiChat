@@ -38,6 +38,11 @@ const configuredProductionOrigins = [
 const productionOrigins = new Set(configuredProductionOrigins);
 const isAllowedProductionOrigin = (origin = "") => {
   const normalizedOrigin = origin.trim().replace(/\/+$/, "");
+  const allowNullOrigin = process.env.ALLOW_NULL_ORIGIN === "true";
+
+  if (allowNullOrigin && normalizedOrigin === "null") {
+    return true;
+  }
 
   return (
     productionOrigins.has(normalizedOrigin) ||

@@ -13,6 +13,11 @@ const parseBoolean = (value, fallback = false) => {
 
   return truthyValues.has(String(value).trim().toLowerCase());
 };
+const parseNumber = (value, fallback) => {
+  const parsedValue = Number(value);
+
+  return Number.isFinite(parsedValue) ? parsedValue : fallback;
+};
 
 const createNoopEnsureDatabaseExists = () => async () => {};
 const getFirstDefined = (...values) =>
@@ -30,6 +35,10 @@ const buildSequelizeOptions = ({
   dialect,
   dialectOptions,
   logging: false,
+  pool: {
+    acquire: parseNumber(process.env.DB_POOL_ACQUIRE_MS, 30000),
+    idle: parseNumber(process.env.DB_POOL_IDLE_MS, 10000),
+  },
   ...(url ? {} : { define: { freezeTableName: false } }),
 });
 
@@ -70,15 +79,25 @@ const getPostgresConfig = () => {
       process.env.SUPABASE_DB_URL ||
       process.env.SUPABASE_DB_HOST
   );
-  const sslEnabled = parseBoolean(process.env.DB_SSL, isSupabaseConfig);
+  const sslEnabled = parseBoolean(
+    process.env.DB_SSL,
+    Boolean(databaseUrl) || isSupabaseConfig
+  );
+  const connectionTimeoutMillis = parseNumber(
+    process.env.DB_CONNECT_TIMEOUT_MS,
+    30000
+  );
   const dialectOptions = sslEnabled
     ? {
+        connectionTimeoutMillis,
         ssl: {
           require: true,
           rejectUnauthorized: false,
         },
       }
-    : undefined;
+    : {
+        connectionTimeoutMillis,
+      };
 
   if (databaseUrl) {
     return {

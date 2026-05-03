@@ -10,6 +10,12 @@ const dataFilePath = path.join(dataDirectory, "local-store.json");
 
 let providerPromise;
 let activeProviderName = "pending";
+const truthyValues = new Set(["1", "true", "yes", "on"]);
+const shouldAlterSchema = truthyValues.has(
+  String(process.env.DB_SYNC_ALTER || "false").trim().toLowerCase()
+);
+const maxDatabaseInitAttempts = Number(process.env.DB_INIT_RETRIES || 3);
+const databaseRetryDelayMs = Number(process.env.DB_INIT_RETRY_DELAY_MS || 2000);
 
 const defaultLocalStore = {
   nextUserId: 1,
@@ -312,23 +318,34 @@ const initializeProvider = async () => {
     return localProvider;
   }
 
-  try {
-    await sequelize.ensureDatabaseExists();
-    await sequelize.authenticate();
-    await sequelize.sync();
-    activeProviderName = "database";
-    return sequelizeProvider;
-  } catch (error) {
-    if (process.env.NODE_ENV === "production") {
-      throw error;
-    }
+  for (let attempt = 1; attempt <= maxDatabaseInitAttempts; attempt += 1) {
+    try {
+      await sequelize.ensureDatabaseExists();
+      await sequelize.authenticate();
+      await sequelize.sync({ alter: shouldAlterSchema });
+      activeProviderName = "database";
+      return sequelizeProvider;
+    } catch (error) {
+      const isLastAttempt = attempt === maxDatabaseInitAttempts;
 
-    console.warn(
-      `${sequelize.databaseLabel} unavailable, using local JSON store instead: ${error.message}`
-    );
-    await ensureLocalStoreExists();
-    activeProviderName = "local";
-    return localProvider;
+      if (isLastAttempt) {
+        if (process.env.NODE_ENV === "production") {
+          throw error;
+        }
+
+        console.warn(
+          `${sequelize.databaseLabel} unavailable, using local JSON store instead: ${error.message}`
+        );
+        await ensureLocalStoreExists();
+        activeProviderName = "local";
+        return localProvider;
+      }
+
+      console.warn(
+        `${sequelize.databaseLabel} initialization attempt ${attempt} failed: ${error.message}. Retrying in ${databaseRetryDelayMs}ms.`
+      );
+      await new Promise((resolve) => setTimeout(resolve, databaseRetryDelayMs));
+    }
   }
 };
 

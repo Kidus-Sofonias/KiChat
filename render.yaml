@@ -20,7 +20,17 @@ services:
           name: kichat-web
           envVarKey: RENDER_EXTERNAL_URL
       - key: DB_SSL
-        value: "false"
+        value: "true"
+      - key: DB_CONNECT_TIMEOUT_MS
+        value: "30000"
+      - key: DB_POOL_ACQUIRE_MS
+        value: "30000"
+      - key: DB_SYNC_ALTER
+        value: "true"
+      - key: DB_INIT_RETRIES
+        value: "3"
+      - key: DB_INIT_RETRY_DELAY_MS
+        value: "2000"
 
   - type: web
     name: kichat-web

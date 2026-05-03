@@ -39,7 +39,7 @@ async function register(req, res) {
       .status(StatusCodes.CREATED)
       .json({ msg: "User created successfully", avatar_seed });
   } catch (error) {
-    console.error("Register error:", error.message);
+    console.error("Register error:", error.message, error.stack);
     return res
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
       .json({ msg: "Something went wrong, try again later" });
@@ -110,7 +110,7 @@ async function checkUser(req, res) {
       avatar_seed: user.avatar_seed,
     });
   } catch (error) {
-    console.error("CheckUser error:", error.message);
+    console.error("CheckUser error:", error.message, error.stack);
     return res
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
       .json({ msg: "Error verifying user" });
@@ -124,7 +124,7 @@ async function getAllUsers(req, res) {
     const users = await store.listOtherUsers(currentUserId);
     return res.status(StatusCodes.OK).json(users);
   } catch (error) {
-    console.error("Error fetching users:", error.message);
+    console.error("Error fetching users:", error.message, error.stack);
     return res
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
       .json({ msg: "Unable to fetch users" });

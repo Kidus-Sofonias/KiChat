@@ -13,6 +13,7 @@ const apiBaseUrl = normalizeUrl(import.meta.env.VITE_API_URL || defaultApiBaseUr
 const instance = axios.create({
   baseURL: apiBaseUrl,
   withCredentials: true,
+  timeout: 30000,
 });
 
 instance.interceptors.request.use((config) => {
@@ -22,5 +23,20 @@ instance.interceptors.request.use((config) => {
   }
   return config;
 });
+
+instance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.code === "ECONNABORTED") {
+      error.response = error.response || {
+        data: {
+          msg: "The server took too long to respond. Please try again in a moment.",
+        },
+      };
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 export default instance;
