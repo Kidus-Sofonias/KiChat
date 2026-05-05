@@ -114,7 +114,7 @@ const UserSidebar = ({
         <img
           src={buildAvatarUrl(
             currentUser?.avatar_seed,
-            currentUser?.user_name || "aurora-bot",
+            currentUser?.user_name || "mark-01-aegis",
             128
           )}
           alt={`${currentUser?.user_name || "Current user"} avatar`}

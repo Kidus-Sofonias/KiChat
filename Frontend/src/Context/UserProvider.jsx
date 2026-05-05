@@ -10,7 +10,7 @@ export const UserProvider = ({ children }) => {
         return {
           user_name: "",
           user_id: "",
-          avatar_seed: "aurora-bot",
+          avatar_seed: "mark-01-aegis",
         };
       }
 
@@ -20,7 +20,7 @@ export const UserProvider = ({ children }) => {
       return {
         user_name: "",
         user_id: "",
-        avatar_seed: "aurora-bot",
+        avatar_seed: "mark-01-aegis",
       };
     }
   });

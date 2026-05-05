@@ -1,43 +1,43 @@
 export const AVATAR_OPTIONS = [
   {
-    id: "aurora-bot",
-    name: "Aurora Bot",
-    mood: "Warm and welcoming",
+    id: "mark-01-aegis",
+    name: "Mark I Aegis",
+    mood: "Heavy prototype armor",
   },
   {
-    id: "nova-pilot",
-    name: "Nova Pilot",
-    mood: "Bright and upbeat",
+    id: "mark-02-vanguard",
+    name: "Mark II Vanguard",
+    mood: "Sleek flight shell",
   },
   {
-    id: "atlas-core",
-    name: "Atlas Core",
-    mood: "Calm and grounded",
+    id: "mark-03-crimson",
+    name: "Mark III Crimson",
+    mood: "Classic battle frame",
   },
   {
-    id: "circuit-scout",
-    name: "Circuit Scout",
-    mood: "Curious and alert",
+    id: "mark-05-sentinel",
+    name: "Mark V Sentinel",
+    mood: "Portable response suit",
   },
   {
-    id: "echo-unit",
-    name: "Echo Unit",
-    mood: "Clean and polished",
+    id: "mark-07-arcstar",
+    name: "Mark VII Arcstar",
+    mood: "Polished command armor",
   },
   {
-    id: "pixel-guard",
-    name: "Pixel Guard",
-    mood: "Sharp and playful",
+    id: "mark-12-stratos",
+    name: "Mark XII Stratos",
+    mood: "High-altitude interceptor",
   },
   {
-    id: "orbit-one",
-    name: "Orbit One",
-    mood: "Soft sci-fi look",
+    id: "mark-21-titan",
+    name: "Mark XXI Titan",
+    mood: "Deep-space heavy suit",
   },
   {
-    id: "kilo-spark",
-    name: "Kilo Spark",
-    mood: "Energetic and friendly",
+    id: "mark-33-photon",
+    name: "Mark XXXIII Photon",
+    mood: "Agile energy armor",
   },
 ];
 
@@ -48,11 +48,11 @@ const hashSeed = (value = "") =>
     .split("")
     .reduce((total, character, index) => total + character.charCodeAt(0) * (index + 11), 0);
 
-export const buildAvatarUrl = (avatarSeed, fallbackSeed = "aurora-bot", size = 96) => {
-  const seed = String(avatarSeed || fallbackSeed || "aurora-bot");
+export const buildAvatarUrl = (avatarSeed, fallbackSeed = "mark-01-aegis", size = 96) => {
+  const seed = String(avatarSeed || fallbackSeed || "mark-01-aegis");
   const hash = hashSeed(seed);
   const backgroundVariant = BACKGROUND_VARIANTS[hash % BACKGROUND_VARIANTS.length];
-  const remixedSeed = `${seed}-mk2`;
+  const remixedSeed = `${seed}-armored-mark`;
 
   return `https://robohash.org/${encodeURIComponent(
     remixedSeed
