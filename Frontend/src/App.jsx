@@ -2,12 +2,12 @@ import "./App.css";
 import Footer from "./Components/Footer/Footer";
 import Header from "./Components/Header/Header";
 import CosmicBackdrop from "./Components/CosmicBackdrop/CosmicBackdrop";
-import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import HomePage from "./Pages/HomePage/HomePage.jsx";
 import SignUp from "./Pages/SignUp/SignUp";
 import { userProvider } from "./Context/UserContext";
 import axios from "./Components/axios";
-import { useCallback, useContext, useEffect, useMemo } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import HowItWorks from "./Pages/HowItWorks/HowItWorks";
 import PrivateRoute from "./Context/PrivateRoute.jsx";
 import SignIn from "./Pages/SignIn/SignIn.jsx";
@@ -21,6 +21,7 @@ function App() {
   const location = useLocation();
   const isChatPage = location.pathname.startsWith("/chat");
   const browserSupport = useMemo(() => getBrowserCapabilities(), []);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   const logOut = useCallback(() => {
     try {
@@ -56,6 +57,8 @@ function App() {
     } catch (error) {
       console.error("Auth error:", error);
       logOut();
+    } finally {
+      setIsCheckingAuth(false);
     }
   }, [logOut, setUser]);
 
@@ -78,6 +81,7 @@ function App() {
       }
 
       setUser({ user_name: "", user_id: "", avatar_seed: "byte-bot" });
+      setIsCheckingAuth(false);
       return;
     }
 
@@ -105,6 +109,10 @@ function App() {
     root.classList.toggle("simple-backdrop", !browserSupport.supportsBackdropFilter);
   }, [browserSupport]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location.pathname]);
+
   return (
     <div className="app-container">
       <CosmicBackdrop browserSupport={browserSupport} />
@@ -130,16 +138,24 @@ function App() {
             <Route
               path="/chat"
               element={
-                <PrivateRoute>
+                <PrivateRoute isCheckingAuth={isCheckingAuth}>
                   <Chat logOut={logOut} browserSupport={browserSupport} />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <PrivateRoute isCheckingAuth={isCheckingAuth}>
+                  <Settings />
                 </PrivateRoute>
               }
             />
             <Route path="/" element={<HomePage />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/signin" element={<SignIn />} />
-            <Route path="/settings" element={<Settings />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </main>

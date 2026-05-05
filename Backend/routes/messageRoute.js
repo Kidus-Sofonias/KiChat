@@ -76,6 +76,7 @@ const uploadFileToS3 = async (file, fileName) => {
 
 const {
   createMessage,
+  deleteMessage,
   getMessages,
   getMessagesBetweenUsers,
   getRecentUsers,
@@ -84,6 +85,7 @@ const {
 
 // Routes
 router.post("/", createMessage);
+router.delete("/:messageId", deleteMessage);
 router.get("/", getMessages);
 router.get("/between", getMessagesBetweenUsers);
 router.get("/recent/:username", getRecentUsers);

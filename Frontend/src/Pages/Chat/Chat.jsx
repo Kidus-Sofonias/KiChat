@@ -19,6 +19,7 @@ import {
   FaSignOutAlt,
   FaStop,
   FaSun,
+  FaTrash,
   FaTimes,
   FaVideo,
 } from "react-icons/fa";
@@ -32,14 +33,16 @@ import UserSidebar from "../../Components/UserSideBar/UserSideBar";
 import { buildAvatarUrl } from "../../Utils/avatarOptions";
 import "./Chat.css";
 
+const normalizeUrl = (value = "") => value.replace(/\/+$/, "");
+
 const defaultApiUrl =
   typeof window !== "undefined" &&
   ["127.0.0.1", "localhost"].includes(window.location.hostname)
     ? `http://${window.location.hostname}:3001`
-    : "http://localhost:3000";
+    : "";
 
-const API_URL = import.meta.env.VITE_API_URL || defaultApiUrl;
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || API_URL;
+const API_URL = normalizeUrl(import.meta.env.VITE_API_URL || defaultApiUrl);
+const SOCKET_URL = normalizeUrl(import.meta.env.VITE_SOCKET_URL || API_URL);
 const URL_PATTERN = /((https?:\/\/|www\.)[^\s<]+)/gi;
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp", "svg"]);
 const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "m4v", "mkv"]);
@@ -275,6 +278,8 @@ const appendMessage = (currentMessages, nextMessage) => {
   return alreadyExists ? currentMessages : [...currentMessages, nextMessage];
 };
 
+const getMessageId = (message) => message?._id ?? message?.id ?? "";
+
 const getMessageSequence = (messages, index) => {
   const message = messages[index];
   const previousMessage = messages[index - 1];
@@ -323,6 +328,7 @@ const Chat = ({ logOut, browserSupport }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [composerNotice, setComposerNotice] = useState("");
+  const [deletingMessageId, setDeletingMessageId] = useState("");
   const [mobileSidebarSection, setMobileSidebarSection] = useState("recent");
   const [browserState, setBrowserState] = useState({
     open: false,
@@ -496,7 +502,7 @@ const Chat = ({ logOut, browserSupport }) => {
 
     messagesRef.current.scrollTo({
       top: messagesRef.current.scrollHeight,
-      behavior: "smooth",
+      behavior: messages.length > 12 ? "auto" : "smooth",
     });
   }, [messages]);
 
@@ -637,6 +643,32 @@ const Chat = ({ logOut, browserSupport }) => {
       console.error("Failed to send message:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteMessage = async (message) => {
+    const messageId = getMessageId(message);
+
+    if (!messageId || message.sender !== user?.user_name) {
+      return;
+    }
+
+    setDeletingMessageId(String(messageId));
+
+    try {
+      await axios.delete(`/api/messages/${messageId}`);
+      setMessages((currentMessages) =>
+        currentMessages.filter(
+          (currentMessage) => String(getMessageId(currentMessage)) !== String(messageId)
+        )
+      );
+    } catch (error) {
+      setComposerNotice(
+        error.response?.data?.error || copy.chat.deleteFailed || copy.chat.messageFailed
+      );
+      console.error("Failed to delete message:", error);
+    } finally {
+      setDeletingMessageId("");
     }
   };
 
@@ -1211,7 +1243,7 @@ const Chat = ({ logOut, browserSupport }) => {
             {messageTimeline.map(
               ({ message, showDateDivider, dayLabel, startsGroup, endsGroup }, index) => (
                 <div
-                  key={message._id || `${message.sender}-${message.createdAt}-${index}`}
+                  key={getMessageId(message) || `${message.sender}-${message.createdAt}-${index}`}
                 >
                   {showDateDivider && (
                     <div className="message-day-divider">
@@ -1245,6 +1277,18 @@ const Chat = ({ logOut, browserSupport }) => {
                         endsGroup ? "group-end" : ""
                       }`}
                     >
+                      {message.sender === user.user_name && (
+                        <button
+                          type="button"
+                          className="message-delete-button"
+                          onClick={() => handleDeleteMessage(message)}
+                          disabled={deletingMessageId === String(getMessageId(message))}
+                          aria-label={copy.chat.deleteMessage || "Delete message"}
+                          title={copy.chat.deleteMessage || "Delete message"}
+                        >
+                          <FaTrash />
+                        </button>
+                      )}
                       {message.sender !== user.user_name && startsGroup && (
                         <div className="message-sender">{message.sender}</div>
                       )}

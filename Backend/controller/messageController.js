@@ -65,8 +65,38 @@ const getRecentUsers = async (req, res) => {
   }
 };
 
+const deleteMessage = async (req, res) => {
+  const { messageId } = req.params;
+  const currentUsername = req.user?.user_name;
+
+  if (!messageId) {
+    return res.status(400).json({ error: "messageId is required" });
+  }
+
+  try {
+    const deletedMessage = await store.deleteMessage(messageId, currentUsername);
+
+    if (!deletedMessage) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+
+    res.json({
+      message: "Message deleted successfully",
+      deletedMessage,
+    });
+  } catch (error) {
+    if (error.code === "FORBIDDEN") {
+      return res.status(403).json({ error: "You can only delete your own messages" });
+    }
+
+    console.error("Failed to delete message:", error.message);
+    res.status(500).json({ error: "Failed to delete message" });
+  }
+};
+
 module.exports = {
   createMessage,
+  deleteMessage,
   getMessages,
   getMessagesBetweenUsers,
   getRecentUsers,

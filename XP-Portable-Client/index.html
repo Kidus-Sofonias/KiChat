@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta charset="utf-8" />
+    <title>KiChat XP Client</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <div class="topbar">
+        <div>
+          <h1 id="app-title">KiChat XP Client</h1>
+          <p class="subtitle">Portable legacy chat client for your hosted backend</p>
+        </div>
+        <div class="topbar-actions">
+          <span id="status-text" class="status idle">Not connected</span>
+          <button id="logout-button" class="secondary hidden" type="button">Log out</button>
+        </div>
+      </div>
+
+      <div id="notice-box" class="notice hidden"></div>
+
+      <div id="auth-view" class="panel-row">
+        <div class="panel auth-panel">
+          <h2>Sign in</h2>
+          <form id="login-form">
+            <label for="login-username">Username</label>
+            <input id="login-username" name="username" type="text" />
+
+            <label for="login-password">Password</label>
+            <input id="login-password" name="password" type="password" />
+
+            <button type="submit">Open chat</button>
+          </form>
+        </div>
+
+        <div class="panel auth-panel">
+          <h2>Create account</h2>
+          <form id="signup-form">
+            <label for="signup-username">Username</label>
+            <input id="signup-username" name="username" type="text" />
+
+            <label for="signup-password">Password</label>
+            <input id="signup-password" name="password" type="password" />
+
+            <label for="signup-confirm-password">Confirm password</label>
+            <input id="signup-confirm-password" name="confirmPassword" type="password" />
+
+            <button type="submit">Create account</button>
+          </form>
+        </div>
+      </div>
+
+      <div id="chat-view" class="hidden">
+        <div class="panel-row">
+          <div class="panel sidebar-panel">
+            <div class="panel-header">
+              <h2>People</h2>
+              <div id="current-user" class="muted"></div>
+            </div>
+
+            <div class="list-section">
+              <h3>Recent</h3>
+              <div id="recent-users" class="list-box"></div>
+            </div>
+
+            <div class="list-section">
+              <h3>All users</h3>
+              <div id="all-users" class="list-box"></div>
+            </div>
+          </div>
+
+          <div class="panel chat-panel">
+            <div class="panel-header">
+              <div>
+                <h2 id="chat-title">Select a person to start chatting</h2>
+                <div id="chat-subtitle" class="muted">
+                  This portable client is optimized for text chat on old browsers.
+                </div>
+              </div>
+              <button id="refresh-button" class="secondary hidden" type="button">Refresh</button>
+            </div>
+
+            <div id="messages" class="messages"></div>
+
+            <form id="message-form" class="composer hidden">
+              <label for="message-input">Message</label>
+              <textarea id="message-input" rows="3"></textarea>
+              <div class="composer-actions">
+                <span class="muted">Polling is used instead of live sockets for XP compatibility.</span>
+                <button type="submit">Send</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

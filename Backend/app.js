@@ -9,6 +9,7 @@ const fs = require("fs");
 const userRoutes = require("./routes/userRoute");
 const messageRoutes = require("./routes/messageRoute");
 const db = require("./db/config");
+const store = require("./db/store");
 const jwtMiddleware = require("./middleWare/authMiddleware");
 
 // Load environment variables
@@ -27,21 +28,48 @@ const configuredProductionOrigins = [
   process.env.FRONTEND_URL,
   process.env.ALLOWED_ORIGINS,
   "https://kichat.netlify.app",
+  "https://kichat.onrender.com",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
 ]
   .flatMap((value) => (value ? value.split(",") : []))
-  .map((value) => value.trim())
+  .map((value) => value.trim().replace(/\/+$/, ""))
   .filter(Boolean);
 
 const productionOrigins = new Set(configuredProductionOrigins);
+const productionOriginPatterns = [
+  /^https:\/\/[a-z0-9-]+\.onrender\.com$/i,
+  /^https?:\/\/localhost(?::\d+)?$/i,
+  /^https?:\/\/127\.0\.0\.1(?::\d+)?$/i,
+];
+
+const isAllowedProductionOrigin = (origin = "") => {
+  const normalizedOrigin = origin.trim().replace(/\/+$/, "");
+  const allowNullOrigin = process.env.ALLOW_NULL_ORIGIN === "true";
+  const allowAllOrigins = process.env.ALLOW_ALL_ORIGINS === "true";
+
+  if (allowAllOrigins) {
+    return true;
+  }
+
+  if (allowNullOrigin && normalizedOrigin === "null") {
+    return true;
+  }
+
+  return (
+    productionOrigins.has(normalizedOrigin) ||
+    productionOriginPatterns.some((pattern) => pattern.test(normalizedOrigin))
+  );
+};
 
 const corsOptions = {
   origin:
     process.env.NODE_ENV === "production"
       ? (origin, callback) => {
-          if (!origin || productionOrigins.has(origin)) {
+          if (!origin || isAllowedProductionOrigin(origin)) {
             callback(null, true);
           } else {
-            callback(new Error("Not allowed by CORS"));
+            callback(null, false);
           }
         }
       : true,
@@ -77,6 +105,26 @@ io.on("connection", (socket) => {
 // Routes
 app.get("/", (req, res) => {
   res.send("🚀 Server is up and running!");
+});
+app.get("/api/health", async (req, res) => {
+  try {
+    const storage = await store.getStorageStatus();
+
+    res.json({
+      status: "ok",
+      storage,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+      storage: {
+        configured: db.isConfigured,
+        databaseDialect: db.databaseDialect,
+        databaseLabel: db.databaseLabel,
+      },
+    });
+  }
 });
 app.use("/api/users", userRoutes);
 app.use("/api/messages", jwtMiddleware, messageRoutes);

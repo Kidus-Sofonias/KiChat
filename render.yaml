@@ -19,15 +19,34 @@ services:
           type: web
           name: kichat-web
           envVarKey: RENDER_EXTERNAL_URL
-      - key: DB_SSL
+      - key: ALLOWED_ORIGINS
+        fromService:
+          type: web
+          name: kichat-web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: ALLOW_NULL_ORIGIN
+        value: "true"
+      - key: ALLOW_ALL_ORIGINS
         value: "false"
+      - key: DB_SSL
+        value: "true"
+      - key: DB_CONNECT_TIMEOUT_MS
+        value: "30000"
+      - key: DB_POOL_ACQUIRE_MS
+        value: "30000"
+      - key: DB_SYNC_ALTER
+        value: "true"
+      - key: DB_INIT_RETRIES
+        value: "3"
+      - key: DB_INIT_RETRY_DELAY_MS
+        value: "2000"
 
   - type: web
     name: kichat-web
     runtime: static
     rootDir: Frontend
     buildCommand: npm install && npm run build
-    staticPublishPath: Frontend/dist
+    staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
         fromService:

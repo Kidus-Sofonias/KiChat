@@ -2,10 +2,27 @@ import React, { useState, useEffect } from "react";
 import { userProvider as UserProviderContext } from "./UserContext";
 
 export const UserProvider = ({ children }) => {
-  const [user, setUser] = useState({
-    user_name: "",
-    user_id: "",
-    avatar_seed: "byte-bot",
+  const [user, setUser] = useState(() => {
+    try {
+      const storedUser = localStorage.getItem("user");
+
+      if (!storedUser) {
+        return {
+          user_name: "",
+          user_id: "",
+          avatar_seed: "byte-bot",
+        };
+      }
+
+      return JSON.parse(storedUser);
+    } catch (error) {
+      console.error("Failed to restore user from storage:", error);
+      return {
+        user_name: "",
+        user_id: "",
+        avatar_seed: "byte-bot",
+      };
+    }
   });
 
   useEffect(() => {

@@ -9,6 +9,13 @@ const dataDirectory = path.join(__dirname, "..", "data");
 const dataFilePath = path.join(dataDirectory, "local-store.json");
 
 let providerPromise;
+let activeProviderName = "pending";
+const truthyValues = new Set(["1", "true", "yes", "on"]);
+const shouldAlterSchema = truthyValues.has(
+  String(process.env.DB_SYNC_ALTER || "false").trim().toLowerCase()
+);
+const maxDatabaseInitAttempts = Number(process.env.DB_INIT_RETRIES || 3);
+const databaseRetryDelayMs = Number(process.env.DB_INIT_RETRY_DELAY_MS || 2000);
 
 const defaultLocalStore = {
   nextUserId: 1,
@@ -168,6 +175,30 @@ const localProvider = {
 
     return uniqueUsers;
   },
+
+  async deleteMessage(messageId, currentUsername) {
+    const store = await readLocalStore();
+    const messageIndex = store.messages.findIndex(
+      (message) => String(message._id) === String(messageId)
+    );
+
+    if (messageIndex < 0) {
+      return null;
+    }
+
+    const message = store.messages[messageIndex];
+
+    if (message.sender !== currentUsername) {
+      const error = new Error("FORBIDDEN");
+      error.code = "FORBIDDEN";
+      throw error;
+    }
+
+    store.messages.splice(messageIndex, 1);
+    await writeLocalStore(store);
+
+    return message;
+  },
 };
 
 const sequelizeProvider = {
@@ -260,25 +291,61 @@ const sequelizeProvider = {
 
     return uniqueUsers;
   },
+
+  async deleteMessage(messageId, currentUsername) {
+    const message = await Message.findByPk(messageId);
+
+    if (!message) {
+      return null;
+    }
+
+    if (message.sender !== currentUsername) {
+      const error = new Error("FORBIDDEN");
+      error.code = "FORBIDDEN";
+      throw error;
+    }
+
+    const deletedMessage = toPlainObject(message);
+    await message.destroy();
+    return deletedMessage;
+  },
 };
 
 const initializeProvider = async () => {
   if (!hasDatabaseConfig()) {
     await ensureLocalStoreExists();
+    activeProviderName = "local";
     return localProvider;
   }
 
-  try {
-    await sequelize.ensureDatabaseExists();
-    await sequelize.authenticate();
-    await sequelize.sync();
-    return sequelizeProvider;
-  } catch (error) {
-    console.warn(
-      `${sequelize.databaseLabel} unavailable, using local JSON store instead: ${error.message}`
-    );
-    await ensureLocalStoreExists();
-    return localProvider;
+  for (let attempt = 1; attempt <= maxDatabaseInitAttempts; attempt += 1) {
+    try {
+      await sequelize.ensureDatabaseExists();
+      await sequelize.authenticate();
+      await sequelize.sync({ alter: shouldAlterSchema });
+      activeProviderName = "database";
+      return sequelizeProvider;
+    } catch (error) {
+      const isLastAttempt = attempt === maxDatabaseInitAttempts;
+
+      if (isLastAttempt) {
+        if (process.env.NODE_ENV === "production") {
+          throw error;
+        }
+
+        console.warn(
+          `${sequelize.databaseLabel} unavailable, using local JSON store instead: ${error.message}`
+        );
+        await ensureLocalStoreExists();
+        activeProviderName = "local";
+        return localProvider;
+      }
+
+      console.warn(
+        `${sequelize.databaseLabel} initialization attempt ${attempt} failed: ${error.message}. Retrying in ${databaseRetryDelayMs}ms.`
+      );
+      await new Promise((resolve) => setTimeout(resolve, databaseRetryDelayMs));
+    }
   }
 };
 
@@ -304,4 +371,15 @@ module.exports = {
   listMessages: (...args) => callProvider("listMessages", ...args),
   listConversation: (...args) => callProvider("listConversation", ...args),
   listRecentUsers: (...args) => callProvider("listRecentUsers", ...args),
+  deleteMessage: (...args) => callProvider("deleteMessage", ...args),
+  getStorageStatus: async () => {
+    await getProvider();
+
+    return {
+      configured: sequelize.isConfigured,
+      databaseDialect: sequelize.databaseDialect,
+      databaseLabel: sequelize.databaseLabel,
+      activeProvider: activeProviderName,
+    };
+  },
 };
