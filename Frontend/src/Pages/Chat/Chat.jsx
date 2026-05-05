@@ -115,7 +115,7 @@ const formatFileSize = (size = 0) => {
   return `${displaySize.toFixed(displaySize >= 10 ? 0 : 1)} ${units[unitIndex]}`;
 };
 
-const getAvatarUrl = (avatarSeed, fallbackSeed = "mark-01-aegis", size = 96) =>
+const getAvatarUrl = (avatarSeed, fallbackSeed = "aurora-bot", size = 96) =>
   buildAvatarUrl(avatarSeed, fallbackSeed, size);
 
 const getFileUrl = (content = "") => {
@@ -374,7 +374,7 @@ const Chat = ({ logOut, browserSupport }) => {
     () =>
       getAvatarUrl(
         selectedUser?.avatar_seed,
-        selectedUser?.user_name || "mark-01-aegis"
+        selectedUser?.user_name || "aurora-bot"
       ),
     [selectedUser?.avatar_seed, selectedUser?.user_name]
   );

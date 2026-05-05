@@ -56,7 +56,7 @@ const SignIn = () => {
       const authenticatedUser = {
         user_name,
         user_id,
-        avatar_seed: avatar_seed || "mark-01-aegis",
+        avatar_seed: avatar_seed || "aurora-bot",
       };
 
       localStorage.setItem("token", token);

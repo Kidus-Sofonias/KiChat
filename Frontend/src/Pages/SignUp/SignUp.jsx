@@ -142,12 +142,22 @@ const SignUp = () => {
                       }`}
                       onClick={() => selectAvatar(avatar.id)}
                     >
-                      <img
-                        src={buildAvatarUrl(avatar.id, avatar.id, 112)}
-                        alt={avatar.name}
-                      />
-                      <strong>{avatar.name}</strong>
-                      <span>{avatar.mood}</span>
+                      <div className="auth-avatar-option-topline">
+                        <span className="auth-avatar-series">{avatar.series}</span>
+                        {selectedAvatar === avatar.id && (
+                          <span className="auth-avatar-status">Selected</span>
+                        )}
+                      </div>
+                      <div className="auth-avatar-portrait">
+                        <img
+                          src={buildAvatarUrl(avatar.id, avatar.id, 112)}
+                          alt={avatar.name}
+                        />
+                      </div>
+                      <div className="auth-avatar-copy">
+                        <strong>{avatar.name}</strong>
+                        <span>{avatar.mood}</span>
+                      </div>
                     </button>
                   ))}
                 </div>

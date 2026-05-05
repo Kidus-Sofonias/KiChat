@@ -1,43 +1,99 @@
 export const AVATAR_OPTIONS = [
   {
-    id: "mark-01-aegis",
-    name: "Mark I Aegis",
-    mood: "Heavy prototype armor",
+    id: "aurora-bot",
+    name: "Aurora Bot",
+    mood: "Warm and welcoming",
+    series: "Mk I",
   },
   {
-    id: "mark-02-vanguard",
-    name: "Mark II Vanguard",
-    mood: "Sleek flight shell",
+    id: "nova-pilot",
+    name: "Nova Pilot",
+    mood: "Bright and upbeat",
+    series: "Mk II",
   },
   {
-    id: "mark-03-crimson",
-    name: "Mark III Crimson",
-    mood: "Classic battle frame",
+    id: "atlas-core",
+    name: "Atlas Core",
+    mood: "Calm and grounded",
+    series: "Mk III",
   },
   {
-    id: "mark-05-sentinel",
-    name: "Mark V Sentinel",
-    mood: "Portable response suit",
+    id: "circuit-scout",
+    name: "Circuit Scout",
+    mood: "Curious and alert",
+    series: "Mk IV",
   },
   {
-    id: "mark-07-arcstar",
-    name: "Mark VII Arcstar",
-    mood: "Polished command armor",
+    id: "echo-unit",
+    name: "Echo Unit",
+    mood: "Clean and polished",
+    series: "Mk V",
   },
   {
-    id: "mark-12-stratos",
-    name: "Mark XII Stratos",
-    mood: "High-altitude interceptor",
+    id: "pixel-guard",
+    name: "Pixel Guard",
+    mood: "Sharp and playful",
+    series: "Mk VI",
   },
   {
-    id: "mark-21-titan",
-    name: "Mark XXI Titan",
-    mood: "Deep-space heavy suit",
+    id: "orbit-one",
+    name: "Orbit One",
+    mood: "Soft sci-fi look",
+    series: "Mk VII",
   },
   {
-    id: "mark-33-photon",
-    name: "Mark XXXIII Photon",
-    mood: "Agile energy armor",
+    id: "kilo-spark",
+    name: "Kilo Spark",
+    mood: "Energetic and friendly",
+    series: "Mk VIII",
+  },
+  {
+    id: "ember-frame",
+    name: "Ember Frame",
+    mood: "Bold and fiery",
+    series: "Mk IX",
+  },
+  {
+    id: "vector-prime",
+    name: "Vector Prime",
+    mood: "Fast and precise",
+    series: "Mk X",
+  },
+  {
+    id: "onyx-guard",
+    name: "Onyx Guard",
+    mood: "Stealth and focus",
+    series: "Mk XI",
+  },
+  {
+    id: "solstice-arc",
+    name: "Solstice Arc",
+    mood: "Bright and elite",
+    series: "Mk XII",
+  },
+  {
+    id: "radar-flux",
+    name: "Radar Flux",
+    mood: "Tactical and aware",
+    series: "Mk XIII",
+  },
+  {
+    id: "halo-forge",
+    name: "Halo Forge",
+    mood: "Heavy and resilient",
+    series: "Mk XIV",
+  },
+  {
+    id: "ion-drift",
+    name: "Ion Drift",
+    mood: "Aerial and smooth",
+    series: "Mk XV",
+  },
+  {
+    id: "titan-veil",
+    name: "Titan Veil",
+    mood: "Massive and composed",
+    series: "Mk XVI",
   },
 ];
 
@@ -48,11 +104,11 @@ const hashSeed = (value = "") =>
     .split("")
     .reduce((total, character, index) => total + character.charCodeAt(0) * (index + 11), 0);
 
-export const buildAvatarUrl = (avatarSeed, fallbackSeed = "mark-01-aegis", size = 96) => {
-  const seed = String(avatarSeed || fallbackSeed || "mark-01-aegis");
+export const buildAvatarUrl = (avatarSeed, fallbackSeed = "aurora-bot", size = 96) => {
+  const seed = String(avatarSeed || fallbackSeed || "aurora-bot");
   const hash = hashSeed(seed);
   const backgroundVariant = BACKGROUND_VARIANTS[hash % BACKGROUND_VARIANTS.length];
-  const remixedSeed = `${seed}-armored-mark`;
+  const remixedSeed = `${seed}-armored-classic`;
 
   return `https://robohash.org/${encodeURIComponent(
     remixedSeed

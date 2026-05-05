@@ -49,7 +49,7 @@ const HomePage = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
   const { copy } = usePreferences();
-  const featuredAvatars = AVATAR_OPTIONS.slice(0, 4);
+  const featuredAvatars = AVATAR_OPTIONS.slice(0, 8);
   const featuredMetrics = copy.home.metrics.slice(0, 3);
   const featuredCards = [
     {
@@ -127,7 +127,7 @@ const HomePage = () => {
 
               <div className="home-device-body">
                 <div className="home-device-sidebar">
-                  {featuredAvatars.slice(0, 3).map((avatar, index) => (
+                  {featuredAvatars.slice(0, 4).map((avatar, index) => (
                     <div
                       key={avatar.id}
                       className={`home-sidebar-card home-sidebar-card-${index + 1}`}
@@ -135,7 +135,7 @@ const HomePage = () => {
                       <img src={buildAvatarUrl(avatar.id, avatar.id, 88)} alt={avatar.name} />
                       <div>
                         <strong>{avatar.name}</strong>
-                        <span>{avatar.mood}</span>
+                        <span>{avatar.series}</span>
                       </div>
                     </div>
                   ))}
@@ -203,6 +203,7 @@ const HomePage = () => {
                 direction={index % 2 === 0 ? "up" : "down"}
               >
                 <article className="home-avatar-card">
+                  <span className="home-avatar-series">{avatar.series}</span>
                   <img
                     src={buildAvatarUrl(avatar.id, avatar.id, 120)}
                     alt={avatar.name}

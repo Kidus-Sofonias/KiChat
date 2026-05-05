@@ -273,14 +273,17 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .auth-avatar-option {
   display: grid;
-  gap: 8px;
-  justify-items: center;
+  gap: 10px;
+  align-content: start;
   padding: 14px;
-  border-radius: 22px;
+  border-radius: 24px;
   border: 1px solid var(--auth-border);
   background: var(--auth-surface);
   color: var(--auth-ink);
@@ -296,6 +299,51 @@
   background: linear-gradient(140deg, var(--accent-soft), var(--auth-surface-strong));
 }
 
+.auth-avatar-option-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.auth-avatar-series,
+.auth-avatar-status,
+.home-avatar-series {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.auth-avatar-series,
+.home-avatar-series {
+  color: var(--auth-accent);
+  background: rgba(47, 109, 246, 0.1);
+  border: 1px solid rgba(47, 109, 246, 0.16);
+}
+
+.auth-avatar-status {
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--auth-accent) 0%, #4a8dff 100%);
+}
+
+.auth-avatar-portrait {
+  display: grid;
+  place-items: center;
+  min-height: 108px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.22), transparent 55%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
 .auth-avatar-option img,
 .home-avatar-thumb {
   width: 74px;
@@ -303,6 +351,13 @@
   border-radius: 20px;
   background: linear-gradient(145deg, #ffffff, #e6eefc);
   padding: 6px;
+}
+
+.auth-avatar-copy {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  text-align: left;
 }
 
 .auth-avatar-option strong,
@@ -319,6 +374,10 @@
   color: var(--auth-subtle);
   font-size: 0.9rem;
   margin: 0;
+}
+
+.auth-avatar-copy span {
+  text-align: left;
 }
 
 .auth-field-group {
@@ -756,6 +815,7 @@
 
   .auth-avatar-grid {
     grid-template-columns: 1fr;
+    max-height: none;
   }
 
   .auth-card-header {
