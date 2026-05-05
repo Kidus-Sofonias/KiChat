@@ -1,5 +1,5 @@
 window.KiChatConfig = {
   appName: "KiChat XP Client",
-  apiBaseUrl: "https://your-hosted-backend.example.com",
+  apiBaseUrl: "https://kichatapi.onrender.com",
   pollIntervalMs: 5000
 };

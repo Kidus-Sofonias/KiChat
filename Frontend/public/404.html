@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>KiChat Redirect</title>
+    <script>
+      (function () {
+        var redirectTarget =
+          window.location.pathname + window.location.search + window.location.hash;
+        window.sessionStorage.setItem("kichat_spa_redirect", redirectTarget);
+        window.location.replace("/");
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>

@@ -502,7 +502,7 @@ const Chat = ({ logOut, browserSupport }) => {
 
     messagesRef.current.scrollTo({
       top: messagesRef.current.scrollHeight,
-      behavior: "smooth",
+      behavior: messages.length > 12 ? "auto" : "smooth",
     });
   }, [messages]);
 

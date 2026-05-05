@@ -19,6 +19,15 @@ services:
           type: web
           name: kichat-web
           envVarKey: RENDER_EXTERNAL_URL
+      - key: ALLOWED_ORIGINS
+        fromService:
+          type: web
+          name: kichat-web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: ALLOW_NULL_ORIGIN
+        value: "true"
+      - key: ALLOW_ALL_ORIGINS
+        value: "false"
       - key: DB_SSL
         value: "true"
       - key: DB_CONNECT_TIMEOUT_MS

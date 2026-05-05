@@ -28,6 +28,7 @@ const configuredProductionOrigins = [
   process.env.FRONTEND_URL,
   process.env.ALLOWED_ORIGINS,
   "https://kichat.netlify.app",
+  "https://kichat.onrender.com",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ]
@@ -36,9 +37,20 @@ const configuredProductionOrigins = [
   .filter(Boolean);
 
 const productionOrigins = new Set(configuredProductionOrigins);
+const productionOriginPatterns = [
+  /^https:\/\/[a-z0-9-]+\.onrender\.com$/i,
+  /^https?:\/\/localhost(?::\d+)?$/i,
+  /^https?:\/\/127\.0\.0\.1(?::\d+)?$/i,
+];
+
 const isAllowedProductionOrigin = (origin = "") => {
   const normalizedOrigin = origin.trim().replace(/\/+$/, "");
   const allowNullOrigin = process.env.ALLOW_NULL_ORIGIN === "true";
+  const allowAllOrigins = process.env.ALLOW_ALL_ORIGINS === "true";
+
+  if (allowAllOrigins) {
+    return true;
+  }
 
   if (allowNullOrigin && normalizedOrigin === "null") {
     return true;
@@ -46,7 +58,7 @@ const isAllowedProductionOrigin = (origin = "") => {
 
   return (
     productionOrigins.has(normalizedOrigin) ||
-    /^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(normalizedOrigin)
+    productionOriginPatterns.some((pattern) => pattern.test(normalizedOrigin))
   );
 };
 
