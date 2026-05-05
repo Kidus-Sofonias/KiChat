@@ -115,7 +115,7 @@ const formatFileSize = (size = 0) => {
   return `${displaySize.toFixed(displaySize >= 10 ? 0 : 1)} ${units[unitIndex]}`;
 };
 
-const getAvatarUrl = (avatarSeed, fallbackSeed = "byte-bot", size = 96) =>
+const getAvatarUrl = (avatarSeed, fallbackSeed = "aurora-bot", size = 96) =>
   buildAvatarUrl(avatarSeed, fallbackSeed, size);
 
 const getFileUrl = (content = "") => {
@@ -266,13 +266,35 @@ const normalizeMessage = (message) => {
   };
 };
 
+const getMessageSignature = (message) => {
+  if (!message) {
+    return "";
+  }
+
+  const explicitId = String(message._id ?? message.id ?? "").trim();
+
+  if (explicitId) {
+    return `id:${explicitId}`;
+  }
+
+  return [
+    message.sender || "",
+    message.receiver || "",
+    message.content || "",
+    message.fileUrl || "",
+    message.caption || "",
+    message.createdAt || "",
+  ].join("|");
+};
+
 const appendMessage = (currentMessages, nextMessage) => {
   if (!nextMessage) {
     return currentMessages;
   }
 
+  const nextSignature = getMessageSignature(nextMessage);
   const alreadyExists = currentMessages.some(
-    (message) => message._id && nextMessage._id && message._id === nextMessage._id
+    (message) => getMessageSignature(message) === nextSignature
   );
 
   return alreadyExists ? currentMessages : [...currentMessages, nextMessage];
@@ -339,6 +361,8 @@ const Chat = ({ logOut, browserSupport }) => {
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   const socketRef = useRef(null);
+  const socketConnectedRef = useRef(false);
+  const recentOutgoingSignaturesRef = useRef(new Set());
   const selectedUserRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordingStreamRef = useRef(null);
@@ -350,7 +374,7 @@ const Chat = ({ logOut, browserSupport }) => {
     () =>
       getAvatarUrl(
         selectedUser?.avatar_seed,
-        selectedUser?.user_name || "byte-bot"
+        selectedUser?.user_name || "aurora-bot"
       ),
     [selectedUser?.avatar_seed, selectedUser?.user_name]
   );
@@ -522,7 +546,12 @@ const Chat = ({ logOut, browserSupport }) => {
     socketRef.current = socket;
 
     socket.on("connect", () => {
+      socketConnectedRef.current = true;
       socket.emit("join", user.user_name);
+    });
+
+    socket.on("disconnect", () => {
+      socketConnectedRef.current = false;
     });
 
     socket.on("receive_message", (incomingMessage) => {
@@ -537,6 +566,13 @@ const Chat = ({ logOut, browserSupport }) => {
         mergeRecentUsers(currentUsers, normalizedMessage, user.user_name)
       );
 
+      if (
+        normalizedMessage.sender === user.user_name &&
+        recentOutgoingSignaturesRef.current.has(getMessageSignature(normalizedMessage))
+      ) {
+        return;
+      }
+
       if (!belongsToActiveConversation) {
         return;
       }
@@ -547,7 +583,9 @@ const Chat = ({ logOut, browserSupport }) => {
     });
 
     return () => {
+      socketConnectedRef.current = false;
       socket.off("receive_message");
+      socket.off("disconnect");
       socket.disconnect();
       socketRef.current = null;
     };
@@ -626,6 +664,12 @@ const Chat = ({ logOut, browserSupport }) => {
 
         sentMessage = normalizeMessage(response.data);
       }
+
+      const sentMessageSignature = getMessageSignature(sentMessage);
+      recentOutgoingSignaturesRef.current.add(sentMessageSignature);
+      window.setTimeout(() => {
+        recentOutgoingSignaturesRef.current.delete(sentMessageSignature);
+      }, 5000);
 
       setMessages((currentMessages) => appendMessage(currentMessages, sentMessage));
       setRecentUsers((currentUsers) =>
@@ -1303,50 +1347,50 @@ const Chat = ({ logOut, browserSupport }) => {
             )}
           </div>
 
-          {(preview || composerNotice || isRecording) && (
-            <div className="composer-preview-shell">
-              {preview && (
-                <div className="composer-preview-card">
-                  {renderPreview()}
-                  <button
-                    type="button"
-                    className="composer-dismiss"
-                    onClick={clearAttachment}
-                  >
-                    <FaTimes />
-                  </button>
-                </div>
-              )}
-
-              {isRecording && (
-                <div className="composer-notice composer-notice-recording">
-                  <span className="recording-dot"></span>
-                  {copy.chat.recordingLabel}
-                  <strong>{formatElapsedTime(recordingSeconds)}</strong>
-                  <button
-                    type="button"
-                    className="composer-inline-action"
-                    onClick={stopRecording}
-                  >
-                    {copy.chat.stop}
-                  </button>
-                  <button
-                    type="button"
-                    className="composer-inline-action ghost"
-                    onClick={cancelRecording}
-                  >
-                    {copy.chat.cancel}
-                  </button>
-                </div>
-              )}
-
-              {composerNotice && !isRecording && (
-                <div className="composer-notice">{composerNotice}</div>
-              )}
-            </div>
-          )}
-
           <footer className="chat-composer">
+            {(preview || composerNotice || isRecording) && (
+              <div className="composer-preview-shell">
+                {preview && (
+                  <div className="composer-preview-card">
+                    {renderPreview()}
+                    <button
+                      type="button"
+                      className="composer-dismiss"
+                      onClick={clearAttachment}
+                    >
+                      <FaTimes />
+                    </button>
+                  </div>
+                )}
+
+                {isRecording && (
+                  <div className="composer-notice composer-notice-recording">
+                    <span className="recording-dot"></span>
+                    {copy.chat.recordingLabel}
+                    <strong>{formatElapsedTime(recordingSeconds)}</strong>
+                    <button
+                      type="button"
+                      className="composer-inline-action"
+                      onClick={stopRecording}
+                    >
+                      {copy.chat.stop}
+                    </button>
+                    <button
+                      type="button"
+                      className="composer-inline-action ghost"
+                      onClick={cancelRecording}
+                    >
+                      {copy.chat.cancel}
+                    </button>
+                  </div>
+                )}
+
+                {composerNotice && !isRecording && (
+                  <div className="composer-notice">{composerNotice}</div>
+                )}
+              </div>
+            )}
+
             <div className="chat-mobile-composer-bar">
               <button
                 type="button"

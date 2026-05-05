@@ -31,7 +31,7 @@ function App() {
       console.error("Failed to clear auth storage:", error);
     }
 
-    setUser({ user_name: "", user_id: "", avatar_seed: "byte-bot" });
+    setUser({ user_name: "", user_id: "", avatar_seed: "aurora-bot" });
     navigate("/signin");
   }, [navigate, setUser]);
 
@@ -44,7 +44,7 @@ function App() {
       const authenticatedUser = {
         user_name: data.user_name,
         user_id: data.user_id,
-        avatar_seed: data.avatar_seed || "byte-bot",
+        avatar_seed: data.avatar_seed || "aurora-bot",
       };
 
       try {
@@ -80,7 +80,7 @@ function App() {
         console.error("Failed to clear stored user:", error);
       }
 
-      setUser({ user_name: "", user_id: "", avatar_seed: "byte-bot" });
+      setUser({ user_name: "", user_id: "", avatar_seed: "aurora-bot" });
       setIsCheckingAuth(false);
       return;
     }
