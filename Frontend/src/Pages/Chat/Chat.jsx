@@ -248,6 +248,38 @@ const getYouTubeEmbedUrl = (url = "") => {
   }
 };
 
+const canUseNotifications = () =>
+  typeof window !== "undefined" && "Notification" in window;
+
+const requestNotificationPermission = () => {
+  if (!canUseNotifications() || Notification.permission !== "default") {
+    return Promise.resolve(Notification.permission);
+  }
+
+  return Notification.requestPermission();
+};
+
+const showIncomingNotification = (message, currentUsername) => {
+  if (!canUseNotifications() || Notification.permission !== "granted") {
+    return;
+  }
+
+  if (message.sender === currentUsername) {
+    return;
+  }
+
+  const title = `${message.sender || "New message"} sent a message`;
+  const body = message.isFile
+    ? message.caption || "Sent an attachment"
+    : message.content || "New message received";
+
+  new Notification(title, {
+    body,
+    icon: "/vite.svg",
+    badge: "/vite.svg",
+  });
+};
+
 const normalizeMessage = (message) => {
   const fileUrl = message.fileUrl || getFileUrl(message.content);
   const caption =
@@ -470,6 +502,14 @@ const Chat = ({ logOut, browserSupport }) => {
   }, [selectedUser]);
 
   useEffect(() => {
+    if (canUseNotifications()) {
+      requestNotificationPermission().catch((error) => {
+        console.error("Notification permission request failed:", error);
+      });
+    }
+  }, []);
+
+  useEffect(() => {
     if (selectedUser) {
       setMobileSidebarSection("recent");
     }
@@ -571,6 +611,14 @@ const Chat = ({ logOut, browserSupport }) => {
         recentOutgoingSignaturesRef.current.has(getMessageSignature(normalizedMessage))
       ) {
         return;
+      }
+
+      const shouldNotify =
+        normalizedMessage.sender !== user.user_name &&
+        (!belongsToActiveConversation || document.visibilityState !== "visible");
+
+      if (shouldNotify) {
+        showIncomingNotification(normalizedMessage, user.user_name);
       }
 
       if (!belongsToActiveConversation) {
