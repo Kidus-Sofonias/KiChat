@@ -27,7 +27,7 @@ services:
       - key: ALLOW_NULL_ORIGIN
         value: "true"
       - key: ALLOW_ALL_ORIGINS
-        value: "false"
+        value: "true"
       - key: DB_SSL
         value: "true"
       - key: DB_CONNECT_TIMEOUT_MS

@@ -66,8 +66,15 @@ const corsOptions = {
   origin:
     process.env.NODE_ENV === "production"
       ? (origin, callback) => {
-          if (!origin || isAllowedProductionOrigin(origin)) {
+          if (!origin) {
             callback(null, true);
+            return;
+          }
+
+          if (isAllowedProductionOrigin(origin)) {
+            // Reflect the exact allowed origin string. This is especially
+            // important for `Origin: null` requests from local file clients.
+            callback(null, origin);
           } else {
             callback(null, false);
           }
