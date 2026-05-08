@@ -352,18 +352,53 @@ const getMessageSequence = (messages, index) => {
   };
 };
 
-const mergeRecentUsers = (currentUsers, message, currentUsername) => {
-  const otherUser =
-    message.sender === currentUsername ? message.receiver : message.sender;
+const getLastMessagePreview = (messages, userName, currentUserName) => {
+  const conversationMessages = messages.filter(
+    (msg) => (msg.sender === userName && msg.receiver === currentUserName) ||
+             (msg.sender === currentUserName && msg.receiver === userName)
+  );
 
-  if (!otherUser || otherUser === currentUsername) {
+  if (conversationMessages.length === 0) return "";
+
+  const lastMessage = conversationMessages[conversationMessages.length - 1];
+  if (lastMessage.isFile) {
+    return lastMessage.caption || "Sent an attachment";
+  }
+  return lastMessage.content || "";
+};
+
+const getMessagePreview = (message) => {
+  if (!message) return "";
+  return message.isFile ? message.caption || "Sent an attachment" : message.content || "";
+};
+
+const mergeRecentUsers = (currentUsers = [], message, currentUsername) => {
+  if (!message || !currentUsername) {
     return currentUsers;
   }
 
-  return [
-    { user_name: otherUser },
-    ...currentUsers.filter((entry) => entry.user_name !== otherUser),
-  ];
+  const partnerName =
+    message.sender === currentUsername ? message.receiver : message.sender;
+
+  if (!partnerName) {
+    return currentUsers;
+  }
+
+  const preview = getMessagePreview(message);
+  const foundIndex = currentUsers.findIndex(
+    (user) => user.user_name === partnerName
+  );
+
+  if (foundIndex >= 0) {
+    const updated = [...currentUsers];
+    updated[foundIndex] = {
+      ...updated[foundIndex],
+      lastMessage: preview,
+    };
+    return updated;
+  }
+
+  return [...currentUsers, { user_name: partnerName, lastMessage: preview }];
 };
 
 const Chat = ({ logOut, browserSupport }) => {
@@ -424,6 +459,8 @@ const Chat = ({ logOut, browserSupport }) => {
       })),
     [messages]
   );
+
+  const recentEntries = useMemo(() => recentUsers, [recentUsers]);
 
   const cleanupPreviewUrl = () => {
     if (previewUrlRef.current) {
@@ -1109,15 +1146,6 @@ const Chat = ({ logOut, browserSupport }) => {
     browserSupport?.supportsFormData !== false &&
     browserSupport?.supportsFileReader !== false;
 
-  const handleMobileChatsClick = () => {
-    const offcanvasElement = document.getElementById("sidebarOffcanvas");
-    const Offcanvas = window.bootstrap?.Offcanvas;
-
-    if (offcanvasElement && Offcanvas) {
-      Offcanvas.getOrCreateInstance(offcanvasElement).show();
-    }
-  };
-
   return (
     <div className="chat-page">
       <Lightbox
@@ -1185,47 +1213,41 @@ const Chat = ({ logOut, browserSupport }) => {
           <UserSidebar
             currentUser={user}
             onSelectUser={setSelectedUser}
-            recentUsers={recentUsers}
+            recentUsers={recentEntries}
             selectedUser={selectedUser}
           />
         </aside>
 
-        <div
-          className="offcanvas offcanvas-start chat-mobile-sidebar"
-          tabIndex="-1"
-          id="sidebarOffcanvas"
-          aria-labelledby="sidebarOffcanvasLabel"
-        >
-          <div className="offcanvas-header">
-            <div>
-              <h5 id="sidebarOffcanvasLabel" className="mb-0">
-                {copy.common.chat}
-              </h5>
-              <small className="chat-offcanvas-copy">
-                {copy.sidebar.searchPlaceholder}
-              </small>
+        {/* Mobile list view */}
+        {!selectedUser && (
+          <div className="chat-mobile-list">
+            <header className="chat-mobile-list-topbar">
+              <h1 className="chat-mobile-list-title">{copy.common.chat}</h1>
+              <button
+                className="chat-logout-button"
+                type="button"
+                onClick={() => navigate("/settings")}
+              >
+                <FaCog />
+                <span>{copy.common.settings}</span>
+              </button>
+            </header>
+            <div className="chat-sidebar">
+              <UserSidebar
+                currentUser={user}
+                onSelectUser={setSelectedUser}
+                recentUsers={recentEntries}
+                selectedUser={selectedUser}
+                activeSection="recent"
+              />
             </div>
-            <button
-              type="button"
-              className="btn-close"
-              data-bs-dismiss="offcanvas"
-              aria-label="Close"
-            ></button>
           </div>
-          <div className="offcanvas-body p-0">
-            <UserSidebar
-              currentUser={user}
-              onSelectUser={setSelectedUser}
-              recentUsers={recentUsers}
-              selectedUser={selectedUser}
-              activeSection={mobileSidebarSection}
-              onSectionChange={setMobileSidebarSection}
-            />
-          </div>
-        </div>
+        )}
 
-        <section className="chat-panel">
-          <header className="chat-topbar">
+        {/* Chat view */}
+        {selectedUser && (
+          <section className="chat-panel">
+            <header className="chat-topbar">
             <div className="chat-topbar-left">
               <button
                 className="chat-icon-button d-lg-none"
@@ -1234,11 +1256,9 @@ const Chat = ({ logOut, browserSupport }) => {
                   if (selectedUser) {
                     setSelectedUser(null);
                   }
-
-                  handleMobileChatsClick();
                 }}
               >
-                {selectedUser ? <FaArrowLeft /> : <FaBars />}
+                <FaArrowLeft />
               </button>
 
               {selectedUser ? (
@@ -1303,35 +1323,7 @@ const Chat = ({ logOut, browserSupport }) => {
             </div>
           </header>
 
-          <div className="chat-feed" ref={messagesRef}>
-            {!selectedUser && (
-              <div className="chat-empty-state">
-                <div className="chat-empty-state-icon orbiting">
-                  <FaComments />
-                </div>
-                <strong>{copy.chat.emptyTitle}</strong>
-                <span>{copy.chat.emptyCopy}</span>
-                <div className="chat-empty-actions">
-                  <button
-                    type="button"
-                    className="chat-empty-action primary"
-                    onClick={handleMobileChatsClick}
-                  >
-                    <FaComments />
-                    <span>{copy.chat.openChats || copy.common.chat}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="chat-empty-action"
-                    onClick={() => navigate("/settings")}
-                  >
-                    <FaCog />
-                    <span>{copy.chat.settings}</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
+          <div className="chat-feed">
             {messageTimeline.map(
               ({ message, showDateDivider, dayLabel, startsGroup, endsGroup }, index) => (
                 <div
@@ -1439,35 +1431,6 @@ const Chat = ({ logOut, browserSupport }) => {
               </div>
             )}
 
-            <div className="chat-mobile-composer-bar">
-              <button
-                type="button"
-                className="chat-mobile-chip"
-                onClick={handleMobileChatsClick}
-              >
-                <FaComments />
-                <span>{copy.chat.openChats || copy.common.chat}</span>
-              </button>
-              <button
-                type="button"
-                className="chat-mobile-chip"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={!supportsFileUpload}
-              >
-                <FaPaperclip />
-                <span>{copy.chat.attachMedia || copy.chat.attach || copy.chat.attachment}</span>
-              </button>
-              <button
-                type="button"
-                className="chat-mobile-chip"
-                onClick={isRecording ? stopRecording : startRecording}
-                disabled={!selectedUser || !supportsVoiceRecording}
-              >
-                {isRecording ? <FaStop /> : <FaMicrophone />}
-                <span>{copy.chat.voiceNote || copy.chat.recordingLabel}</span>
-              </button>
-            </div>
-
             <div className="chat-composer-tools">
               <input
                 ref={fileInputRef}
@@ -1495,15 +1458,13 @@ const Chat = ({ logOut, browserSupport }) => {
             </div>
 
             <div className="chat-input-shell">
-              {selectedUser && (
-                <div className="chat-input-context">
-                  <span className="chat-input-context-pill">
-                    <FaRobot />
-                    {selectedUser.user_name}
-                  </span>
-                  <span className="chat-input-context-hint">{copy.chat.directMessage}</span>
-                </div>
-              )}
+              <div className="chat-input-context">
+                <span className="chat-input-context-pill">
+                  <FaRobot />
+                  {selectedUser.user_name}
+                </span>
+                <span className="chat-input-context-hint">{copy.chat.directMessage}</span>
+              </div>
               <textarea
                 ref={textareaRef}
                 className="chat-textarea"
@@ -1534,55 +1495,11 @@ const Chat = ({ logOut, browserSupport }) => {
               {loading ? <ClipLoader color="#fff" size={18} /> : <FaPaperPlane />}
             </button>
           </footer>
-        </section>
+          </section>
+        )}
       </div>
 
-      <nav className="chat-mobile-dock" aria-label="Mobile chat navigation">
-        <button
-          type="button"
-          className="chat-mobile-dock-item"
-          onClick={handleMobileChatsClick}
-        >
-          <FaComments />
-          <span>{copy.common.chat}</span>
-        </button>
-        <button
-          type="button"
-          className="chat-mobile-dock-item"
-          onClick={() => {
-            setMobileSidebarSection("people");
-            handleMobileChatsClick();
-          }}
-        >
-          <FaSearch />
-          <span>{copy.sidebar.people}</span>
-        </button>
-        <button
-          type="button"
-          className="chat-mobile-dock-item chat-mobile-dock-item-accent"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!supportsFileUpload}
-        >
-          <FaPaperclip />
-          <span>{copy.chat.attach || copy.chat.attachment}</span>
-        </button>
-        <button
-          type="button"
-          className="chat-mobile-dock-item"
-          onClick={toggleTheme}
-        >
-          {theme === "dark" ? <FaSun /> : <FaMoon />}
-          <span>{theme === "dark" ? copy.common.light : copy.common.dark}</span>
-        </button>
-        <button
-          type="button"
-          className="chat-mobile-dock-item"
-          onClick={() => navigate("/settings")}
-        >
-          <FaCog />
-          <span>{copy.common.settings}</span>
-        </button>
-      </nav>
+      {/* Remove mobile dock */}
     </div>
   );
 };

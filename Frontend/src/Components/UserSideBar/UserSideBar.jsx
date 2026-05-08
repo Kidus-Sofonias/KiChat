@@ -103,7 +103,7 @@ const UserSidebar = ({
       />
       <div className="sidebar-user-copy">
         <strong>{user.user_name}</strong>
-        <span>{subtitle}</span>
+        <span>{user.lastMessage || subtitle}</span>
       </div>
     </button>
   );

@@ -18,11 +18,20 @@
 
 .app-main.chat-main {
   min-height: calc(100vh - 90px);
+  justify-content: flex-start;
+  padding: 0;
 }
 
 .app-main-content {
   width: min(1180px, 100%);
   margin: 0 auto;
+}
+
+.app-main-content.chat-content {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  margin: 0;
 }
 
 @media (max-width: 720px) {

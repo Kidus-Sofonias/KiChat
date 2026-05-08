@@ -400,6 +400,7 @@
       state.selectedUser &&
       state.selectedUser.user_name &&
       state.selectedUser.user_name === user.user_name;
+    var avatar = escapeHtml(user.user_name ? user.user_name.charAt(0).toUpperCase() : "?");
 
     return (
       '<button class="user-button' +
@@ -407,10 +408,15 @@
       '" type="button" data-username="' +
       escapeAttribute(user.user_name) +
       '">' +
+      '<span class="user-avatar">' +
+      avatar +
+      '</span>' +
+      '<span class="user-info">' +
       '<span class="user-name">' +
       escapeHtml(user.user_name) +
       "</span>" +
       '<span class="user-meta">Direct message</span>' +
+      '</span>' +
       "</button>"
     );
   }
