@@ -1003,26 +1003,24 @@
 @media (max-width: 991px) {
   .chat-shell {
     padding: 0;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .chat-panel {
     min-height: calc(100vh - 16px);
     min-height: calc(100dvh - 16px);
-    height: auto;
+    height: auto !important;
+    width: 100% !important;
     border-radius: 0;
   }
 
-  .chat-sidebar {
-    display: block !important;
-  }
-
-  .chat-panel {
-    display: block !important;
-  }
-
+  .chat-sidebar,
+  .chat-mobile-list,
   .chat-mobile-sidebar {
-    width: 100%;
-    max-width: 100%;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .chat-mobile-sidebar .offcanvas-header,
