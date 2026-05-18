@@ -789,7 +789,7 @@
   backdrop-filter: blur(16px);
 }
 
-@media (max-width: 991px) {
+@media (max-width: 992px) {
   .chat-mobile-list {
     display: flex;
   }
@@ -1000,7 +1000,7 @@
   }
 }
 
-@media (max-width: 991px) {
+@media (max-width: 992px) {
   .chat-shell {
     padding: 0;
     flex-direction: column;
