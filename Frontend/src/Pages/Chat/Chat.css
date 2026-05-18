@@ -1017,7 +1017,7 @@
   }
 
   .chat-panel {
-    display: none !important;
+    display: block !important;
   }
 
   .chat-mobile-sidebar {
