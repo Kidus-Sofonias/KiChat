@@ -1,0 +1,82 @@
+.emoji-reactions-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.emoji-reaction-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  background: var(--telegram-surface-2);
+  border: 1px solid var(--telegram-border);
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  color: var(--telegram-text);
+
+  &:hover {
+    background: var(--telegram-surface);
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+.emoji-reaction-emoji {
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.emoji-reaction-count {
+  font-size: 0.75rem;
+  color: var(--telegram-muted);
+  font-weight: 500;
+  min-width: 16px;
+  text-align: center;
+}
+
+/* Tooltip on hover - shows who reacted */
+.emoji-reaction-badge::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 10;
+}
+
+.emoji-reaction-badge:hover::after {
+  opacity: 1;
+}
+
+/* Animation on first appearance */
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.emoji-reaction-badge {
+  animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}

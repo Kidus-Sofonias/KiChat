@@ -64,6 +64,10 @@ async function login(req, res) {
         .json({ msg: "Invalid username or password" });
     }
 
+    if (!user.password) {
+      console.error('Login error: stored password missing for user', user.user_name);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ msg: 'Server error' });
+    }
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
@@ -71,6 +75,9 @@ async function login(req, res) {
         .status(StatusCodes.UNAUTHORIZED)
         .json({ msg: "Invalid username or password" });
     }
+
+    // Update last seen timestamp
+    await store.updateUser(user.user_id, { last_seen: new Date() });
 
     const token = jwt.sign(
       { user_id: user.user_id, user_name: user.user_name },
@@ -97,6 +104,9 @@ async function checkUser(req, res) {
   const { user_id } = req.user;
 
   try {
+    // Update last seen timestamp
+    await store.updateUser(user_id, { last_seen: new Date() });
+    
     const user = await store.findUserById(user_id);
 
     if (!user) {
@@ -108,6 +118,7 @@ async function checkUser(req, res) {
       user_id: user.user_id,
       user_name: user.user_name,
       avatar_seed: user.avatar_seed,
+      last_seen: user.last_seen,
     });
   } catch (error) {
     console.error("CheckUser error:", error.message, error.stack);
@@ -131,9 +142,24 @@ async function getAllUsers(req, res) {
   }
 }
 
+async function updateLastSeen(req, res) {
+  const { user_id } = req.user;
+
+  try {
+    await store.updateUser(user_id, { last_seen: new Date() });
+    return res.status(StatusCodes.OK).json({ msg: "Last seen updated" });
+  } catch (error) {
+    console.error("UpdateLastSeen error:", error.message, error.stack);
+    return res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ msg: "Failed to update last seen" });
+  }
+}
+
 module.exports = {
   register,
   login,
   checkUser,
   getAllUsers,
+  updateLastSeen,
 };

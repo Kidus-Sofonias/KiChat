@@ -95,16 +95,82 @@ app.set("io", io);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Configure web-push VAPID keys
+const webPush = require("web-push");
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+
+if (vapidPublicKey && vapidPrivateKey) {
+  webPush.setVapidDetails(
+    "mailto:admin@kichat.app",
+    vapidPublicKey,
+    vapidPrivateKey
+  );
+}
+
+app.get("/api/push/vapid-key", (req, res) => {
+  if (!vapidPublicKey) {
+    return res.status(503).json({ msg: "Push notifications not configured" });
+  }
+  res.json({ publicKey: vapidPublicKey });
+});
+
+// In-memory store for push subscriptions
+const pushSubscriptions = new Map();
+
+app.post("/api/push/subscribe", (req, res) => {
+  const { username, subscription } = req.body;
+  if (!username || !subscription) {
+    return res.status(400).json({ msg: "username and subscription required" });
+  }
+  pushSubscriptions.set(username, subscription);
+  res.json({ msg: "Subscribed" });
+});
+
+app.post("/api/push/send", async (req, res) => {
+  const { username, title, body: msgBody, url } = req.body;
+  if (!username) {
+    return res.status(400).json({ msg: "username required" });
+  }
+  const subscription = pushSubscriptions.get(username);
+  if (!subscription) {
+    return res.json({ msg: "No subscription found, user may not have notifications enabled" });
+  }
+
+  try {
+    const webPush = require("web-push");
+    const payload = JSON.stringify({ title: title || "KiChat", body: msgBody || "", url: url || "/" });
+    await webPush.sendNotification(subscription, payload);
+    res.json({ msg: "Notification sent" });
+  } catch (error) {
+    console.error("Push notification error:", error.message);
+    // Remove stale subscription
+    if (error.statusCode === 404 || error.statusCode === 410) {
+      pushSubscriptions.delete(username);
+    }
+    res.status(500).json({ msg: "Failed to send notification" });
+  }
+});
+
 io.on("connection", (socket) => {
   const username = socket.handshake.auth?.username;
 
   if (username) {
     socket.join(username);
+    
+    // Update last seen timestamp for active user by username
+    store.updateUserByName(username, { last_seen: new Date() });
   }
 
   socket.on("join", (room) => {
     if (room) {
       socket.join(room);
+    }
+  });
+
+  socket.on("disconnect", () => {
+    if (username) {
+      store.updateUserByName(username, { last_seen: new Date() });
     }
   });
 });
@@ -137,5 +203,5 @@ app.use("/api/users", userRoutes);
 app.use("/api/messages", jwtMiddleware, messageRoutes);
 
 // Start server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

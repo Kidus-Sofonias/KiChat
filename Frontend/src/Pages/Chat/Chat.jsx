@@ -31,7 +31,22 @@ import { userProvider } from "../../Context/UserContext";
 import { usePreferences } from "../../Context/usePreferences";
 import UserSidebar from "../../Components/UserSideBar/UserSideBar";
 import { buildAvatarUrl } from "../../Utils/avatarOptions";
+import { formatLastSeen, isOnline } from "../../Utils/formatLastSeen";
+import MessageActions from "../../Components/MessageActions/MessageActions";
+import ReplyQuote from "../../Components/ReplyQuote/ReplyQuote";
+import EmojiReactions from "../../Components/EmojiReactions/EmojiReactions";
 import "./Chat.css";
+
+const urlBase64ToUint8Array = (base64String) => {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+};
 
 const normalizeUrl = (value = "") => value.replace(/\/+$/, "");
 
@@ -419,11 +434,14 @@ const Chat = ({ logOut, browserSupport }) => {
   const [composerNotice, setComposerNotice] = useState("");
   const [deletingMessageId, setDeletingMessageId] = useState("");
   const [mobileSidebarSection, setMobileSidebarSection] = useState("recent");
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [hoveredMessageId, setHoveredMessageId] = useState(null);
   const [browserState, setBrowserState] = useState({
     open: false,
     url: "",
     title: "",
   });
+  const [selectedUserLastSeen, setSelectedUserLastSeen] = useState(null);
   const messagesRef = useRef(null);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
@@ -462,6 +480,18 @@ const Chat = ({ logOut, browserSupport }) => {
 
   const recentEntries = useMemo(() => recentUsers, [recentUsers]);
 
+  // Map usernames to avatar_seeds so message avatars match sidebar avatars
+  const avatarSeedMap = useMemo(() => {
+    const map = {};
+    if (user?.user_name && user?.avatar_seed) {
+      map[user.user_name] = user.avatar_seed;
+    }
+    if (selectedUser?.user_name && selectedUser?.avatar_seed) {
+      map[selectedUser.user_name] = selectedUser.avatar_seed;
+    }
+    return map;
+  }, [user?.user_name, user?.avatar_seed, selectedUser?.user_name, selectedUser?.avatar_seed]);
+
   const cleanupPreviewUrl = () => {
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current);
@@ -494,6 +524,7 @@ const Chat = ({ logOut, browserSupport }) => {
   const resetComposer = () => {
     setInput("");
     setComposerNotice("");
+    setReplyingTo(null);
     clearAttachment();
   };
 
@@ -596,16 +627,70 @@ const Chat = ({ logOut, browserSupport }) => {
     setLightboxImages(imageMessages.map((message) => ({ src: message.fileUrl })));
   }, [messages]);
 
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (!messagesRef.current) {
-      return;
-    }
-
-    messagesRef.current.scrollTo({
-      top: messagesRef.current.scrollHeight,
-      behavior: messages.length > 12 ? "auto" : "smooth",
+    if (!messagesRef.current) return;
+    const el = messagesRef.current;
+    // Always snap to bottom instantly when messages update
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
     });
   }, [messages]);
+
+  // Also scroll to bottom when selecting a new user (messages may load async)
+  useEffect(() => {
+    if (!selectedUser?.user_name) return;
+    // Scroll after progressive delays to let messages render (especially on mobile)
+    const timers = [
+      setTimeout(() => {
+        if (messagesRef.current) {
+          messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+        }
+      }, 100),
+      setTimeout(() => {
+        if (messagesRef.current) {
+          messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+        }
+      }, 300),
+      setTimeout(() => {
+        if (messagesRef.current) {
+          messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+        }
+      }, 600),
+      // Extra delay for mobile browsers where viewport height may change after keyboard
+      setTimeout(() => {
+        if (messagesRef.current) {
+          messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+        }
+      }, 1200),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [selectedUser?.user_name]);
+
+  // Handle phone/device back button to return to user list
+  useEffect(() => {
+    if (!selectedUser?.user_name) return;
+    // Push a history entry so the phone's back button can go back to the user list
+    window.history.pushState({ chatOpen: true, user: selectedUser.user_name }, "");
+
+    return () => {
+      // Cleanup - pop the state we pushed if component unmounts
+      // (handles case where user navigates away via settings button)
+    };
+  }, [selectedUser?.user_name]);
+
+  // Listen for popstate (back/forward browser navigation)
+  useEffect(() => {
+    const handlePopState = () => {
+      // If a chat is currently open, go back to the user list
+      if (selectedUserRef.current?.user_name) {
+        setSelectedUser(null);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   useEffect(() => {
     if (!user?.user_name) {
@@ -676,6 +761,128 @@ const Chat = ({ logOut, browserSupport }) => {
     };
   }, [user?.user_name]);
 
+  // Fetch selected user's last_seen and poll for updates
+  useEffect(() => {
+    if (!selectedUser?.user_name) {
+      setSelectedUserLastSeen(null);
+      return;
+    }
+
+    const fetchLastSeen = () => {
+      axios
+        .get("/api/users/all")
+        .then((res) => {
+          const found = res.data.find(
+            (u) => u.user_name === selectedUser.user_name
+          );
+          if (found) {
+            setSelectedUserLastSeen(found.last_seen);
+            // Also update the selectedUser object so it includes the real avatar seed
+            setSelectedUser((prev) =>
+              prev && prev.user_name === found.user_name
+                ? {
+                    ...prev,
+                    user_id: found.user_id,
+                    avatar_seed: found.avatar_seed,
+                    last_seen: found.last_seen,
+                  }
+                : prev
+            );
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchLastSeen();
+    const interval = setInterval(fetchLastSeen, 15_000);
+    return () => clearInterval(interval);
+  }, [selectedUser?.user_name]);
+
+  // Tick every 30s so the topbar "last seen X ago" stays fresh
+  const [, setLastSeenTick] = useState(0);
+  useEffect(() => {
+    const tickInterval = setInterval(() => setLastSeenTick((t) => t + 1), 30_000);
+    return () => clearInterval(tickInterval);
+  }, []);
+
+  // Update last seen when user closes tab or switches away
+  useEffect(() => {
+    if (!user?.user_name) return;
+
+    const updateLastSeen = () => {
+      navigator.sendBeacon?.(
+        `${API_URL}/api/users/last-seen`,
+        new Blob([JSON.stringify({})], { type: "application/json" })
+      );
+      // Also try a regular fetch with keepalive
+      fetch(`${API_URL}/api/users/last-seen`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        keepalive: true,
+      }).catch(() => {});
+    };
+
+    const handleBeforeUnload = () => updateLastSeen();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") updateLastSeen();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [user?.user_name]);
+
+  // Push notification subscription
+  useEffect(() => {
+    if (!user?.user_name) return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+    const subscribeToPush = async () => {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") return;
+
+        const registration = await navigator.serviceWorker.ready;
+
+        // Check for existing subscription
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+          // Fetch VAPID key
+          const keyRes = await fetch(`${API_URL}/api/push/vapid-key`);
+          if (!keyRes.ok) return;
+          const { publicKey } = await keyRes.json();
+
+          const convertedKey = urlBase64ToUint8Array(publicKey);
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: convertedKey,
+          });
+        }
+
+        // Send subscription to server
+        await fetch(`${API_URL}/api/push/subscribe`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: user.user_name,
+            subscription: subscription.toJSON(),
+          }),
+        });
+      } catch (error) {
+        console.error("Push subscription failed:", error);
+      }
+    };
+
+    subscribeToPush();
+  }, [user?.user_name]);
+
   useEffect(
     () => () => {
       cleanupPreviewUrl();
@@ -712,6 +919,10 @@ const Chat = ({ logOut, browserSupport }) => {
   };
 
   const handleSend = async () => {
+    if (replyingTo) {
+      return handleSendReply();
+    }
+
     if (isRecording || (!input.trim() && !file) || !selectedUser?.user_name || !user?.user_name) {
       return;
     }
@@ -798,6 +1009,113 @@ const Chat = ({ logOut, browserSupport }) => {
       console.error("Failed to delete message:", error);
     } finally {
       setDeletingMessageId("");
+    }
+  };
+
+  const handleReply = (message) => {
+    setReplyingTo(message);
+    textareaRef.current?.focus();
+  };
+
+  const handleReactToMessage = async (message, emoji) => {
+    const messageId = getMessageId(message);
+    if (!messageId || !user?.user_name) {
+      return;
+    }
+
+    try {
+      const reactions = message.reactions || {};
+      const hasReacted = reactions[emoji]?.includes(user.user_name);
+
+      if (hasReacted) {
+        await axios.post(`/api/messages/${messageId}/reaction/remove`, { emoji });
+      } else {
+        await axios.post(`/api/messages/${messageId}/reaction/add`, { emoji });
+      }
+
+      // Update message in local state
+      setMessages((currentMessages) =>
+        currentMessages.map((msg) =>
+          String(getMessageId(msg)) === String(messageId)
+            ? {
+                ...msg,
+                reactions: {
+                  ...msg.reactions,
+                  [emoji]: hasReacted
+                    ? (msg.reactions[emoji] || []).filter((u) => u !== user.user_name)
+                    : [...(msg.reactions[emoji] || []), user.user_name],
+                },
+              }
+            : msg
+        )
+      );
+    } catch (error) {
+      console.error("Failed to add reaction:", error);
+    }
+  };
+
+  const handleSendReply = async () => {
+    if (isRecording || (!input.trim() && !file) || !selectedUser?.user_name || !user?.user_name || !replyingTo) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      let sentMessage;
+
+      if (file) {
+        if (!supportsFileUpload) {
+          throw new Error("File uploads are not supported in this browser.");
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("sender", user.user_name);
+        formData.append("receiver", selectedUser.user_name);
+
+        if (input.trim()) {
+          formData.append("caption", input.trim());
+        }
+
+        const response = await axios.post("/api/messages/file", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        sentMessage = normalizeMessage(response.data);
+      } else {
+        const response = await axios.post("/api/messages/reply", {
+          sender: user.user_name,
+          receiver: selectedUser.user_name,
+          content: input.trim(),
+          replyTo: getMessageId(replyingTo),
+        });
+
+        sentMessage = normalizeMessage(response.data);
+      }
+
+      const sentMessageSignature = getMessageSignature(sentMessage);
+      recentOutgoingSignaturesRef.current.add(sentMessageSignature);
+      window.setTimeout(() => {
+        recentOutgoingSignaturesRef.current.delete(sentMessageSignature);
+      }, 5000);
+
+      setMessages((currentMessages) => appendMessage(currentMessages, sentMessage));
+      setRecentUsers((currentUsers) =>
+        mergeRecentUsers(currentUsers, sentMessage, user.user_name)
+      );
+      resetComposer();
+    } catch (error) {
+      setComposerNotice(
+        error.message === "File uploads are not supported in this browser."
+          ? error.message
+          : error.response?.data?.details ||
+              error.response?.data?.error ||
+              copy.chat.messageFailed
+      );
+      console.error("Failed to send reply:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1263,14 +1581,26 @@ const Chat = ({ logOut, browserSupport }) => {
 
               {selectedUser ? (
                 <div className="chat-contact-chip">
-                  <img
-                    src={selectedUserAvatar}
-                    alt={`${selectedUser.user_name} avatar`}
-                    className="chat-contact-avatar"
-                  />
+                  <div className="chat-contact-avatar-wrapper">
+                    <img
+                      src={selectedUserAvatar}
+                      alt={`${selectedUser.user_name} avatar`}
+                      className="chat-contact-avatar"
+                    />
+                    <span
+                      className={`chat-contact-status-dot ${
+                        isOnline(selectedUser.last_seen || selectedUserLastSeen)
+                          ? "online"
+                          : "offline"
+                      }`}
+                    />
+                  </div>
                   <div className="chat-contact-copy">
                     <strong>{selectedUser.user_name}</strong>
-                    <span>{copy.chat.directMessage}</span>
+                    <span className="chat-contact-lastseen">
+                      {formatLastSeen(selectedUser.last_seen || selectedUserLastSeen) ||
+                        copy.chat.directMessage}
+                    </span>
                   </div>
                 </div>
               ) : (
@@ -1323,7 +1653,7 @@ const Chat = ({ logOut, browserSupport }) => {
             </div>
           </header>
 
-          <div className="chat-feed">
+          <div className="chat-feed" ref={messagesRef}>
             {messageTimeline.map(
               ({ message, showDateDivider, dayLabel, startsGroup, endsGroup }, index) => (
                 <div
@@ -1341,11 +1671,13 @@ const Chat = ({ logOut, browserSupport }) => {
                     } ${startsGroup ? "group-start" : "group-middle"} ${
                       endsGroup ? "group-end" : ""
                     }`}
+                    onMouseEnter={() => setHoveredMessageId(getMessageId(message))}
+                    onMouseLeave={() => setHoveredMessageId(null)}
                   >
                     {message.sender !== user.user_name ? (
                       startsGroup ? (
                         <img
-                          src={getAvatarUrl(null, message.sender)}
+                          src={getAvatarUrl(avatarSeedMap[message.sender] || null, message.sender)}
                           className="avatar"
                           alt={`${message.sender}'s avatar`}
                         />
@@ -1360,6 +1692,7 @@ const Chat = ({ logOut, browserSupport }) => {
                       } ${startsGroup ? "group-start" : ""} ${
                         endsGroup ? "group-end" : ""
                       }`}
+                      style={{ position: "relative" }}
                     >
                       {message.sender === user.user_name && (
                         <button
@@ -1373,10 +1706,33 @@ const Chat = ({ logOut, browserSupport }) => {
                           <FaTrash />
                         </button>
                       )}
+
+                      {hoveredMessageId === getMessageId(message) && (
+                        <MessageActions
+                          message={message}
+                          onReply={handleReply}
+                          onReact={(emoji) => handleReactToMessage(message, emoji)}
+                          userReacted={(message.reactions || {})[Object.keys(message.reactions || {})[0]] || []}
+                        />
+                      )}
+
+                      {message.replyTo && message.replyToContent && (
+                        <div className="message-reply-context">
+                          <strong>{message.replyToSender}</strong>
+                          <p>{message.replyToContent}</p>
+                        </div>
+                      )}
+
                       {message.sender !== user.user_name && startsGroup && (
                         <div className="message-sender">{message.sender}</div>
                       )}
                       {renderMessageBody(message)}
+                      
+                      <EmojiReactions
+                        reactions={message.reactions}
+                        onReactionClick={(emoji) => handleReactToMessage(message, emoji)}
+                      />
+
                       <div className="message-meta">
                         <span>{formatBubbleTime(message.createdAt)}</span>
                       </div>
@@ -1388,8 +1744,15 @@ const Chat = ({ logOut, browserSupport }) => {
           </div>
 
           <footer className="chat-composer">
-            {(preview || composerNotice || isRecording) && (
+            {(replyingTo || preview || composerNotice || isRecording) && (
               <div className="composer-preview-shell">
+                {replyingTo && (
+                  <ReplyQuote
+                    message={replyingTo}
+                    onDismiss={() => setReplyingTo(null)}
+                  />
+                )}
+
                 {preview && (
                   <div className="composer-preview-card">
                     {renderPreview()}
@@ -1458,23 +1821,12 @@ const Chat = ({ logOut, browserSupport }) => {
             </div>
 
             <div className="chat-input-shell">
-              <div className="chat-input-context">
-                <span className="chat-input-context-pill">
-                  <FaRobot />
-                  {selectedUser.user_name}
-                </span>
-                <span className="chat-input-context-hint">{copy.chat.directMessage}</span>
-              </div>
               <textarea
                 ref={textareaRef}
                 className="chat-textarea"
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                placeholder={
-                  selectedUser
-                    ? copy.chat.placeholderReady
-                    : copy.chat.placeholderIdle
-                }
+                placeholder={`Message ${selectedUser.user_name}`}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();

@@ -76,6 +76,44 @@ const localProvider = {
       : null;
   },
 
+  async updateUser(user_id, updates) {
+    const store = await readLocalStore();
+    const userIndex = store.users.findIndex(
+      (entry) => entry.user_id === Number(user_id)
+    );
+
+    if (userIndex < 0) {
+      return null;
+    }
+
+    store.users[userIndex] = {
+      ...store.users[userIndex],
+      ...updates,
+    };
+    await writeLocalStore(store);
+
+    return { ...store.users[userIndex] };
+  },
+  // New method to update by username
+  async updateUserByName(user_name, updates) {
+    const store = await readLocalStore();
+    const userIndex = store.users.findIndex(
+      (entry) => entry.user_name === user_name
+    );
+
+    if (userIndex < 0) {
+      return null;
+    }
+
+    store.users[userIndex] = {
+      ...store.users[userIndex],
+      ...updates,
+    };
+    await writeLocalStore(store);
+
+    return { ...store.users[userIndex] };
+  },
+
   async createUser({ user_name, password, avatar_seed = "byte-bot" }) {
     const store = await readLocalStore();
     const user = {
@@ -83,6 +121,7 @@ const localProvider = {
       user_name,
       password,
       avatar_seed,
+      last_seen: new Date().toISOString(),
     };
 
     store.users.push(user);
@@ -96,14 +135,15 @@ const localProvider = {
 
     return store.users
       .filter((user) => user.user_id !== Number(currentUserId))
-      .map(({ user_id, user_name, avatar_seed }) => ({
+      .map(({ user_id, user_name, avatar_seed, last_seen }) => ({
         user_id,
         user_name,
         avatar_seed: avatar_seed || "byte-bot",
+        last_seen,
       }));
   },
 
-  async createMessage(messageInput) {
+  async createMessage(messageInput, replyData = {}) {
     const store = await readLocalStore();
     const timestamp = new Date().toISOString();
     const message = {
@@ -115,6 +155,10 @@ const localProvider = {
       fileType: messageInput.fileType || null,
       caption: messageInput.caption || "",
       fileUrl: messageInput.fileUrl || "",
+      replyTo: replyData.replyTo || null,
+      replyToContent: replyData.replyToContent || null,
+      replyToSender: replyData.replyToSender || null,
+      reactions: {},
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -199,6 +243,67 @@ const localProvider = {
 
     return message;
   },
+
+  async getMessageById(messageId) {
+    const store = await readLocalStore();
+    return store.messages.find(
+      (message) => String(message._id) === String(messageId)
+    );
+  },
+
+  async addReaction(messageId, emoji, username) {
+    const store = await readLocalStore();
+    const message = store.messages.find(
+      (msg) => String(msg._id) === String(messageId)
+    );
+
+    if (!message) {
+      return null;
+    }
+
+    if (!message.reactions) {
+      message.reactions = {};
+    }
+
+    if (!message.reactions[emoji]) {
+      message.reactions[emoji] = [];
+    }
+
+    if (!message.reactions[emoji].includes(username)) {
+      message.reactions[emoji].push(username);
+    }
+
+    message.updatedAt = new Date().toISOString();
+    await writeLocalStore(store);
+
+    return message;
+  },
+
+  async removeReaction(messageId, emoji, username) {
+    const store = await readLocalStore();
+    const message = store.messages.find(
+      (msg) => String(msg._id) === String(messageId)
+    );
+
+    if (!message) {
+      return null;
+    }
+
+    if (message.reactions && message.reactions[emoji]) {
+      message.reactions[emoji] = message.reactions[emoji].filter(
+        (u) => u !== username
+      );
+
+      if (message.reactions[emoji].length === 0) {
+        delete message.reactions[emoji];
+      }
+    }
+
+    message.updatedAt = new Date().toISOString();
+    await writeLocalStore(store);
+
+    return message;
+  },
 };
 
 const sequelizeProvider = {
@@ -210,9 +315,29 @@ const sequelizeProvider = {
   async findUserById(user_id) {
     const user = await User.findOne({
       where: { user_id },
-      attributes: ["user_id", "user_name", "password", "avatar_seed"],
+      attributes: ["user_id", "user_name", "password", "avatar_seed", "last_seen"],
     });
+    
+    return toPlainObject(user);
+  },
 
+  async updateUser(user_id, updates) {
+    const user = await User.findByPk(user_id);
+    if (!user) {
+      return null;
+    }
+
+    await user.update(updates);
+    return toPlainObject(user);
+  },
+
+  async updateUserByName(user_name, updates) {
+    const user = await User.findOne({ where: { user_name } });
+    if (!user) {
+      return null;
+    }
+
+    await user.update(updates);
     return toPlainObject(user);
   },
 
@@ -226,26 +351,28 @@ const sequelizeProvider = {
       where: {
         user_id: { [Op.ne]: currentUserId },
       },
-      attributes: ["user_id", "user_name", "avatar_seed"],
+      attributes: ["user_id", "user_name", "avatar_seed", "last_seen"],
     });
 
     return users.map(toPlainObject);
   },
 
-  async createMessage(messageInput) {
+  async createMessage(messageInput, replyData = {}) {
     const message = await Message.create({
       sender: messageInput.sender,
       receiver: messageInput.receiver,
       content: messageInput.content,
       isFile: Boolean(messageInput.isFile),
+      fileType: messageInput.fileType || null,
+      fileUrl: messageInput.fileUrl || "",
+      caption: messageInput.caption || "",
+      replyTo: replyData.replyTo || null,
+      replyToContent: replyData.replyToContent || null,
+      replyToSender: replyData.replyToSender || null,
+      reactions: {},
     });
 
-    return {
-      ...toPlainObject(message),
-      fileType: messageInput.fileType || null,
-      caption: messageInput.caption || "",
-      fileUrl: messageInput.fileUrl || "",
-    };
+    return toPlainObject(message);
   },
 
   async listMessages() {
@@ -309,13 +436,65 @@ const sequelizeProvider = {
     await message.destroy();
     return deletedMessage;
   },
+
+  async getMessageById(messageId) {
+    const message = await Message.findByPk(messageId);
+    return message ? toPlainObject(message) : null;
+  },
+
+  async addReaction(messageId, emoji, username) {
+    const message = await Message.findByPk(messageId);
+
+    if (!message) {
+      return null;
+    }
+
+    const reactions = message.reactions || {};
+    if (!reactions[emoji]) {
+      reactions[emoji] = [];
+    }
+
+    if (!reactions[emoji].includes(username)) {
+      reactions[emoji].push(username);
+    }
+
+    message.reactions = reactions;
+    await message.save();
+
+    return toPlainObject(message);
+  },
+
+  async removeReaction(messageId, emoji, username) {
+    const message = await Message.findByPk(messageId);
+
+    if (!message) {
+      return null;
+    }
+
+    const reactions = message.reactions || {};
+    if (reactions[emoji]) {
+      reactions[emoji] = reactions[emoji].filter((u) => u !== username);
+
+      if (reactions[emoji].length === 0) {
+        delete reactions[emoji];
+      }
+    }
+
+    message.reactions = reactions;
+    await message.save();
+
+    return toPlainObject(message);
+  },
 };
 
 const initializeProvider = async () => {
+  // No database configuration – abort with a clear error
   if (!hasDatabaseConfig()) {
-    await ensureLocalStoreExists();
-    activeProviderName = "local";
-    return localProvider;
+    const err = new Error(
+      "Database configuration missing. Please set DATABASE_URL and related environment variables."
+    );
+    err.code = "DB_CONFIG_MISSING";
+    throw err;
   }
 
   for (let attempt = 1; attempt <= maxDatabaseInitAttempts; attempt += 1) {
@@ -323,24 +502,28 @@ const initializeProvider = async () => {
       await sequelize.ensureDatabaseExists();
       await sequelize.authenticate();
       await sequelize.sync({ alter: shouldAlterSchema });
+      // Ensure last_seen column exists for userTable (needed for UI)
+      try {
+        await sequelize.getQueryInterface().addColumn('userTable', 'last_seen', {
+          type: require('sequelize').DataTypes.DATE,
+          allowNull: true,
+          defaultValue: require('sequelize').DataTypes.NOW,
+        });
+      } catch (e) {
+        // Column may already exist; ignore errors
+      }
       activeProviderName = "database";
       return sequelizeProvider;
     } catch (error) {
       const isLastAttempt = attempt === maxDatabaseInitAttempts;
-
       if (isLastAttempt) {
-        if (process.env.NODE_ENV === "production") {
-          throw error;
-        }
-
-        console.warn(
-          `${sequelize.databaseLabel} unavailable, using local JSON store instead: ${error.message}`
+        // Propagate a clear, user‑friendly error instead of silently falling back
+        const friendly = new Error(
+          `Unable to connect to the database after ${maxDatabaseInitAttempts} attempts: ${error.message}`
         );
-        await ensureLocalStoreExists();
-        activeProviderName = "local";
-        return localProvider;
+        friendly.code = "DB_CONNECTION_FAILED";
+        throw friendly;
       }
-
       console.warn(
         `${sequelize.databaseLabel} initialization attempt ${attempt} failed: ${error.message}. Retrying in ${databaseRetryDelayMs}ms.`
       );
@@ -372,6 +555,11 @@ module.exports = {
   listConversation: (...args) => callProvider("listConversation", ...args),
   listRecentUsers: (...args) => callProvider("listRecentUsers", ...args),
   deleteMessage: (...args) => callProvider("deleteMessage", ...args),
+  getMessageById: (...args) => callProvider("getMessageById", ...args),
+  addReaction: (...args) => callProvider("addReaction", ...args),
+  removeReaction: (...args) => callProvider("removeReaction", ...args),
+  // Added export for updateUser to fix login error
+  updateUser: (...args) => callProvider("updateUser", ...args),
   getStorageStatus: async () => {
     await getProvider();
 
@@ -381,5 +569,16 @@ module.exports = {
       databaseLabel: sequelize.databaseLabel,
       activeProvider: activeProviderName,
     };
+  },
+  // Helper to update user by username, works for both providers
+  updateUserByName: async (user_name, updates) => {
+    const provider = await getProvider();
+    if (provider.updateUserByName) {
+      return provider.updateUserByName(user_name, updates);
+    }
+    // Fallback: find user then update by id
+    const user = await provider.findUserByUsername(user_name);
+    if (!user) return null;
+    return provider.updateUser(user.user_id, updates);
   },
 };

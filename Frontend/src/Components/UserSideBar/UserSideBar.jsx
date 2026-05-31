@@ -3,6 +3,9 @@ import { FaSearch } from "react-icons/fa";
 import axios from "../../Components/axios";
 import { usePreferences } from "../../Context/usePreferences";
 import { buildAvatarUrl } from "../../Utils/avatarOptions";
+import { formatLastSeen, isOnline } from "../../Utils/formatLastSeen";
+
+const POLL_INTERVAL_MS = 15_000;
 
 const UserSidebar = ({
   currentUser,
@@ -14,9 +17,10 @@ const UserSidebar = ({
 }) => {
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
+  const [tick, setTick] = useState(0);
   const { copy } = usePreferences();
 
-  useEffect(() => {
+  const fetchUsers = () => {
     if (!currentUser?.user_name) {
       setUsers([]);
       return;
@@ -26,7 +30,20 @@ const UserSidebar = ({
       .get("/api/users/all")
       .then((res) => setUsers(res.data))
       .catch((error) => console.error("Failed to fetch users:", error));
+  };
+
+  // Initial fetch + periodic polling for updated last_seen values
+  useEffect(() => {
+    fetchUsers();
+    const interval = setInterval(fetchUsers, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
   }, [currentUser?.user_name]);
+
+  // Re-render periodically so relative "last seen X ago" strings stay fresh
+  useEffect(() => {
+    const tickInterval = setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => clearInterval(tickInterval);
+  }, []);
 
   const availableUsers = useMemo(
     () => users.filter((user) => user.user_name !== currentUser?.user_name),
@@ -88,38 +105,59 @@ const UserSidebar = ({
     }, 100);
   };
 
-  const renderUserButton = (user, subtitle) => (
-    <button
-      key={user.user_name}
-      className={`sidebar-user-card ${
-        selectedUser?.user_name === user.user_name ? "selected" : ""
-      }`}
-      onClick={() => handleSelectUserAndClose(user)}
-    >
-      <img
-        src={buildAvatarUrl(user.avatar_seed, user.user_name)}
-        alt={`${user.user_name} avatar`}
-        className="sidebar-avatar"
-      />
-      <div className="sidebar-user-copy">
-        <strong>{user.user_name}</strong>
-        <span>{user.lastMessage || subtitle}</span>
-      </div>
-    </button>
-  );
+  const renderUserButton = (user, subtitle) => {
+    const online = isOnline(user.last_seen);
+    const lastSeenText = formatLastSeen(user.last_seen);
+
+    return (
+      <button
+        key={user.user_name}
+        className={`sidebar-user-card ${
+          selectedUser?.user_name === user.user_name ? "selected" : ""
+        }`}
+        onClick={() => handleSelectUserAndClose(user)}
+      >
+        <div className="sidebar-avatar-wrapper">
+          <img
+            src={buildAvatarUrl(user.avatar_seed, user.user_name)}
+            alt={`${user.user_name} avatar`}
+            className="sidebar-avatar"
+          />
+          <span
+            className={`sidebar-status-dot ${online ? "online" : "offline"}`}
+            aria-label={online ? "Online" : "Offline"}
+          />
+        </div>
+        <div className="sidebar-user-copy">
+          <strong>{user.user_name}</strong>
+          <span className="sidebar-user-status">
+            {user.lastMessage
+              ? user.lastMessage
+              : lastSeenText || subtitle}
+          </span>
+        </div>
+      </button>
+    );
+  };
 
   return (
     <div className="sidebar-shell">
       <div className="sidebar-profile-card">
-        <img
-          src={buildAvatarUrl(
-            currentUser?.avatar_seed,
-            currentUser?.user_name || "aurora-bot",
-            128
-          )}
-          alt={`${currentUser?.user_name || "Current user"} avatar`}
-          className="sidebar-avatar sidebar-avatar-large"
-        />
+        <div className="sidebar-avatar-wrapper sidebar-avatar-wrapper-large">
+          <img
+            src={buildAvatarUrl(
+              currentUser?.avatar_seed,
+              currentUser?.user_name || "aurora-bot",
+              128
+            )}
+            alt={`${currentUser?.user_name || "Current user"} avatar`}
+            className="sidebar-avatar sidebar-avatar-large"
+          />
+          <span
+            className="sidebar-status-dot sidebar-status-dot-large online"
+            aria-label="Online"
+          />
+        </div>
         <div className="sidebar-profile-copy">
           <span className="sidebar-profile-label">{copy.sidebar.signedInAs}</span>
           <strong>{currentUser?.user_name || copy.common.guest}</strong>
@@ -210,4 +248,3 @@ const UserSidebar = ({
 };
 
 export default UserSidebar;
-

@@ -24,6 +24,11 @@ const User = sequelize.define(
       allowNull: false,
       defaultValue: "byte-bot",
     },
+    last_seen: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: DataTypes.NOW,
+    },
   },
   {
     timestamps: false, // Set to true if you want createdAt/updatedAt

@@ -1,0 +1,135 @@
+.message-actions {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 8px;
+  background: var(--telegram-surface);
+  border: 1px solid var(--telegram-border);
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(24px);
+  animation: slideUp 0.2s ease-out;
+  z-index: 100;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-actions-primary {
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+  align-items: center;
+}
+
+.message-actions-emoji {
+  position: relative;
+}
+
+.message-action-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  color: var(--telegram-text);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--telegram-surface-2);
+    transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  svg {
+    font-size: 1.1rem;
+  }
+}
+
+.message-reply-btn {
+  color: var(--telegram-accent);
+
+  &:hover {
+    background: rgba(42, 171, 238, 0.1);
+  }
+}
+
+.message-emoji-btn {
+  color: #FFB93C;
+
+  &:hover {
+    background: rgba(255, 185, 60, 0.1);
+  }
+}
+
+.emoji-picker-popup {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 8px;
+  background: var(--telegram-surface);
+  border: 1px solid var(--telegram-border);
+  border-radius: 12px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slideUp 0.2s ease-out;
+  z-index: 101;
+}
+
+.emoji-button {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.4rem;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    background: var(--telegram-surface-2);
+    transform: scale(1.2);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 576px) {
+  .message-actions {
+    position: fixed;
+    bottom: auto;
+    right: 50%;
+    top: 50%;
+    transform: translate(50%, -50%);
+    z-index: 1000;
+  }
+
+  .emoji-picker-popup {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}

@@ -3,21 +3,23 @@ const router = express.Router();
 const multer = require("multer");
 const fs = require("fs/promises");
 const path = require("path");
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const cloudinary = require("cloudinary").v2;
 require("dotenv").config();
 const store = require("../db/store");
 
-// AWS S3 Configuration
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-  // Add retry configuration
-  maxAttempts: 3,
-  retryMode: "standard",
-});
+// Cloudinary Configuration (optional – uses free tier)
+const hasCloudinaryConfig = () =>
+  ["CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"].every(
+    (key) => Boolean(process.env[key])
+  );
+
+if (hasCloudinaryConfig()) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+}
 
 // Memory storage to handle file buffer
 const storage = multer.memoryStorage();
@@ -29,18 +31,6 @@ const upload = multer({
 });
 
 const uploadsDirectory = path.join(__dirname, "..", "uploads");
-const s3RequiredEnvVars = [
-  "AWS_REGION",
-  "AWS_ACCESS_KEY_ID",
-  "AWS_SECRET_ACCESS_KEY",
-  "S3_BUCKET_NAME",
-];
-
-const hasS3Config = () =>
-  s3RequiredEnvVars.every((key) => Boolean(process.env[key]));
-
-const shouldUseS3Uploads = () =>
-  process.env.NODE_ENV === "production" && hasS3Config();
 
 const sanitizeFileName = (fileName = "attachment") =>
   fileName.replace(/[^\w.-]+/g, "-");
@@ -61,17 +51,26 @@ const uploadFileLocally = async (req, file, fileName) => {
   return buildLocalFileUrl(req, fileName);
 };
 
-const uploadFileToS3 = async (file, fileName) => {
-  const uploadParams = {
-    Bucket: process.env.S3_BUCKET_NAME,
-    Key: fileName,
-    Body: file.buffer,
-    ContentType: file.mimetype,
-  };
+const uploadFileToCloudinary = (file, fileName) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: file.mimetype.startsWith("video/") ? "video" : 
+                       file.mimetype.startsWith("audio/") ? "video" : "image",
+        public_id: fileName.replace(/\.[^/.]+$/, ""),
+        format: file.originalname.split(".").pop(),
+      },
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result.secure_url);
+        }
+      }
+    );
 
-  await s3Client.send(new PutObjectCommand(uploadParams));
-
-  return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+    uploadStream.end(file.buffer);
+  });
 };
 
 const {
@@ -80,6 +79,9 @@ const {
   getMessages,
   getMessagesBetweenUsers,
   getRecentUsers,
+  replyToMessage,
+  addReaction,
+  removeReaction,
   emitMessageToUsers,
 } = require("../controller/messageController");
 
@@ -89,6 +91,9 @@ router.delete("/:messageId", deleteMessage);
 router.get("/", getMessages);
 router.get("/between", getMessagesBetweenUsers);
 router.get("/recent/:username", getRecentUsers);
+router.post("/reply", replyToMessage);
+router.post("/:messageId/reaction/add", addReaction);
+router.post("/:messageId/reaction/remove", removeReaction);
 
 // File Upload Route
 router.post("/file", upload.single("file"), async (req, res) => {
@@ -103,16 +108,19 @@ router.post("/file", upload.single("file"), async (req, res) => {
     const fileName = `${Date.now()}-${sanitizeFileName(file.originalname)}`;
     let fileUrl;
 
-    if (shouldUseS3Uploads()) {
+    // Try Cloudinary first (free tier), fall back to local storage
+    if (hasCloudinaryConfig()) {
       try {
-        fileUrl = await uploadFileToS3(file, fileName);
+        fileUrl = await uploadFileToCloudinary(file, fileName);
+        console.log("Uploaded to Cloudinary:", fileUrl);
       } catch (error) {
         console.warn(
-          `S3 upload failed, falling back to local storage: ${error.message}`
+          `Cloudinary upload failed, falling back to local storage: ${error.message}`
         );
         fileUrl = await uploadFileLocally(req, file, fileName);
       }
     } else {
+      console.log("Cloudinary not configured, using local storage");
       fileUrl = await uploadFileLocally(req, file, fileName);
     }
     

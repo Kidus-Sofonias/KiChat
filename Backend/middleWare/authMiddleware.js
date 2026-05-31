@@ -1,5 +1,6 @@
 const { StatusCodes } = require("http-status-codes");
 const jwt = require("jsonwebtoken");
+const store = require("../db/store");
 
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -18,6 +19,10 @@ function authMiddleware(req, res, next) {
     // ✅ Verify the token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded; // Attach user info from token
+    
+    // Update last seen timestamp for active user
+    store.updateUser(decoded.user_id, { last_seen: new Date() });
+    
     next();
   } catch (error) {
     console.error("JWT verification failed:", error.message);

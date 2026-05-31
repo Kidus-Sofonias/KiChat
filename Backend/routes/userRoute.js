@@ -7,6 +7,7 @@ const {
   login,
   checkUser,
   getAllUsers,
+  updateLastSeen,
 } = require("../controller/userController");
 const authMiddleware = require("../middleWare/authMiddleware");
 
@@ -20,5 +21,8 @@ router.post("/login", login);
 router.get("/check", authMiddleware, checkUser);
 
 router.get("/all", authMiddleware, getAllUsers);
+
+// update last seen
+router.post("/last-seen", authMiddleware, updateLastSeen);
 
 module.exports = router;

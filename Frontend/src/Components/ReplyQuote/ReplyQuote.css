@@ -1,0 +1,107 @@
+.reply-quote {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: var(--telegram-surface-2);
+  border: 1px solid var(--telegram-border);
+  border-radius: 12px;
+  border-left: 4px solid var(--telegram-accent);
+  animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.reply-quote-left-accent {
+  width: 4px;
+  background: linear-gradient(
+    180deg,
+    var(--telegram-accent),
+    var(--telegram-accent-2)
+  );
+  border-radius: 2px;
+  flex-shrink: 0;
+  margin: -12px 0;
+}
+
+.reply-quote-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reply-quote-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+
+  strong {
+    color: var(--telegram-accent);
+  }
+}
+
+.reply-quote-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: rgba(42, 171, 238, 0.15);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: var(--telegram-accent);
+  flex-shrink: 0;
+}
+
+.reply-quote-text {
+  color: var(--telegram-text);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+.reply-quote-close {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--telegram-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+
+  &:hover {
+    background: var(--telegram-surface);
+    color: var(--telegram-text);
+  }
+
+  &:active {
+    transform: scale(0.9);
+  }
+}
+
+/* Dark theme adjustments */
+:root[data-theme="dark"] .reply-quote {
+  background: rgba(255, 255, 255, 0.04);
+}
