@@ -50,15 +50,30 @@ const UserSidebar = ({
     [currentUser?.user_name, users]
   );
 
+  // Combine available users with recent users for search
+  const allSearchableUsers = useMemo(() => {
+    const availableUserNames = new Set(availableUsers.map((user) => user.user_name));
+    const combined = [...availableUsers];
+    
+    // Add recent users that aren't already in availableUsers
+    recentUsers.forEach((recentUser) => {
+      if (!availableUserNames.has(recentUser.user_name)) {
+        combined.push(recentUser);
+      }
+    });
+    
+    return combined;
+  }, [availableUsers, recentUsers]);
+
   const searchResults = useMemo(() => {
     if (!search.trim()) {
       return availableUsers;
     }
 
-    return availableUsers.filter((user) =>
+    return allSearchableUsers.filter((user) =>
       user.user_name.toLowerCase().includes(search.toLowerCase())
     );
-  }, [availableUsers, search]);
+  }, [allSearchableUsers, search]);
 
   const recentLookup = useMemo(
     () => new Set(recentUsers.map((user) => user.user_name)),
@@ -195,7 +210,7 @@ const UserSidebar = ({
         </div>
       )}
 
-      {activeSection !== "people" && (
+      {activeSection !== "people" && !search.trim() && (
         <section className="sidebar-section">
           <div className="sidebar-section-header">
             <span>{copy.sidebar.recent}</span>
@@ -214,7 +229,7 @@ const UserSidebar = ({
         </section>
       )}
 
-      {activeSection !== "recent" && (
+      {(activeSection !== "recent" || search.trim()) && (
         <section className="sidebar-section sidebar-section-fill">
           <div className="sidebar-section-header">
             <span>

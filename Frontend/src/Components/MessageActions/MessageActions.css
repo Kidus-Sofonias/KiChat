@@ -1,135 +1,236 @@
 .message-actions {
   position: absolute;
-  bottom: 100%;
-  right: 0;
-  margin-bottom: 8px;
-  background: var(--telegram-surface);
-  border: 1px solid var(--telegram-border);
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(24px);
-  animation: slideUp 0.2s ease-out;
+  bottom: 8px;
+  right: 12px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
   z-index: 100;
 }
 
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.message-actions.visible {
+  opacity: 1;
+  visibility: visible;
 }
 
-.message-actions-primary {
-  display: flex;
-  gap: 4px;
-  padding: 8px;
-  align-items: center;
-}
-
-.message-actions-emoji {
-  position: relative;
-}
-
-.message-action-button {
+.message-actions-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 12px;
-  color: var(--telegram-text);
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-
-  &:hover {
-    background: var(--telegram-surface-2);
-    transform: scale(1.05);
-  }
-
-  &:active {
-    transform: scale(0.95);
-  }
-
-  svg {
-    font-size: 1.1rem;
-  }
+  gap: 2px;
+  padding: 4px 6px;
+  background: var(--page-surface-strong);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--page-border);
 }
 
-.message-reply-btn {
-  color: var(--telegram-accent);
-
-  &:hover {
-    background: rgba(42, 171, 238, 0.1);
-  }
-}
-
-.message-emoji-btn {
-  color: #FFB93C;
-
-  &:hover {
-    background: rgba(255, 185, 60, 0.1);
-  }
-}
-
-.emoji-picker-popup {
-  position: absolute;
-  bottom: 100%;
-  right: 0;
-  margin-bottom: 8px;
-  background: var(--telegram-surface);
-  border: 1px solid var(--telegram-border);
-  border-radius: 12px;
-  padding: 8px;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  animation: slideUp 0.2s ease-out;
-  z-index: 101;
-}
-
-.emoji-button {
-  width: 36px;
-  height: 36px;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1.4rem;
-  transition: all 0.2s ease;
+.message-action-icon {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
 
-  &:hover {
-    background: var(--telegram-surface-2);
-    transform: scale(1.2);
-  }
+.message-action-icon:hover {
+  background: var(--glass-hover);
+  transform: scale(1.1);
+}
 
-  &:active {
-    transform: scale(0.95);
+.message-action-icon:active {
+  transform: scale(0.92);
+}
+
+/* More dots button */
+.message-action-icon.more-btn {
+  color: var(--text-primary);
+}
+
+.more-dots {
+  display: flex;
+  gap: 2px;
+  position: relative;
+}
+
+.more-dots::before,
+.more-dots::after {
+  content: "";
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-primary);
+}
+
+.more-dots::before {
+  position: absolute;
+  left: -4px;
+}
+
+.more-dots::after {
+  position: absolute;
+  right: -4px;
+}
+
+/* Reply button */
+.message-action-icon.reply-btn {
+  color: var(--text-primary);
+}
+
+/* Emoji button */
+.message-action-icon.emoji-btn {
+  color: var(--text-primary);
+}
+
+.message-action-icon.emoji-btn .emoji-icon {
+  font-size: 1rem;
+}
+
+/* More menu wrapper */
+.message-actions-more-wrapper {
+  position: relative;
+}
+
+/* More menu popup */
+.more-menu-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--page-surface-strong);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: var(--shadow-lg);
+  animation: menuSlideUp 0.2s ease-out;
+  z-index: 101;
+  min-width: 120px;
+  border: 1px solid var(--page-border);
+}
+
+@keyframes menuSlideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
   }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.more-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s ease;
+}
+
+.more-menu-item:hover {
+  background: var(--glass-hover);
+}
+
+.more-menu-item.delete-item {
+  color: #ff4444;
+}
+
+.more-menu-item.delete-item:hover {
+  background: rgba(255, 68, 68, 0.15);
+}
+
+/* Emoji picker wrapper */
+.message-actions-emoji-wrapper {
+  position: relative;
+}
+
+/* Emoji picker popup - Instagram style horizontal strip */
+.emoji-picker-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--page-surface-strong);
+  border-radius: 20px;
+  padding: 6px 8px;
+  box-shadow: var(--shadow-lg);
+  animation: emojiPickerSlideUp 0.2s ease-out;
+  z-index: 101;
+  border: 1px solid var(--page-border);
+}
+
+@keyframes emojiPickerSlideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.emoji-picker-strip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.emoji-picker-item {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.3rem;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emoji-picker-item:hover {
+  background: var(--glass-hover);
+  transform: scale(1.25);
+}
+
+.emoji-picker-item:active {
+  transform: scale(0.9);
 }
 
 /* Mobile responsiveness */
 @media (max-width: 576px) {
   .message-actions {
-    position: fixed;
-    bottom: auto;
-    right: 50%;
-    top: 50%;
-    transform: translate(50%, -50%);
-    z-index: 1000;
+    bottom: 6px;
+    right: 8px;
   }
 
-  .emoji-picker-popup {
-    grid-template-columns: repeat(5, 1fr);
+  .message-actions-bar {
+    padding: 3px 5px;
+  }
+
+  .message-action-icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .emoji-picker-popup,
+  .more-menu-popup {
+    left: 50%;
+    transform: translateX(-50%);
   }
 }

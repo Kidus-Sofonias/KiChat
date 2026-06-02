@@ -16,11 +16,7 @@ const SignUp = () => {
     trigger,
     handleSubmit,
     formState: { errors },
-  } = useForm({
-    defaultValues: {
-      avatar_seed: AVATAR_OPTIONS[0].id,
-    },
-  });
+  } = useForm({ defaultValues: { avatar_seed: AVATAR_OPTIONS[0].id } });
 
   const navigate = useNavigate();
   const [, setUser] = useContext(userProvider);
@@ -31,9 +27,7 @@ const SignUp = () => {
   const passwordValue = watch("password");
 
   const selectedAvatarMeta = useMemo(
-    () =>
-      AVATAR_OPTIONS.find((option) => option.id === selectedAvatar) ||
-      AVATAR_OPTIONS[0],
+    () => AVATAR_OPTIONS.find((option) => option.id === selectedAvatar) || AVATAR_OPTIONS[0],
     [selectedAvatar]
   );
 
@@ -45,31 +39,24 @@ const SignUp = () => {
   const onSubmit = async (data) => {
     setLoading(true);
     setFormError("");
-
     try {
       await axios.post("/api/users/register", {
         user_name: data.username.trim(),
         password: data.password,
         avatar_seed: data.avatar_seed,
       });
-
       const response = await axios.post("/api/users/login", {
         user_name: data.username.trim(),
         password: data.password,
       });
-
       const { token, user_name, user_id, avatar_seed } = response.data;
       const authenticatedUser = { user_name, user_id, avatar_seed };
-
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(authenticatedUser));
       setUser(authenticatedUser);
       navigate("/chat");
     } catch (error) {
-      setFormError(
-        error.response?.data?.msg || copy.auth.signup.genericError
-      );
-      console.error(error);
+      setFormError(error.response?.data?.msg || copy.auth.signup.genericError);
     } finally {
       setLoading(false);
     }
@@ -78,12 +65,12 @@ const SignUp = () => {
   return (
     <div className="auth-screen auth-screen-signup">
       <div className="auth-shell auth-shell-wide">
-        <section className="auth-hero">
+        <section className="auth-hero animate-fade-in">
           <div className="auth-kicker">{copy.auth.signup.kicker}</div>
-          <h1>{copy.auth.signup.title}</h1>
-          <p>{copy.auth.signup.description}</p>
+          <h1 className="animate-slide-up">{copy.auth.signup.title}</h1>
+          <p className="animate-slide-up-delay">{copy.auth.signup.description}</p>
 
-          <div className="auth-highlight-card">
+          <div className="auth-highlight-card animate-slide-up-delay-2">
             <img
               src={buildAvatarUrl(selectedAvatarMeta.id, selectedAvatarMeta.id, 180)}
               alt={selectedAvatarMeta.name}
@@ -95,18 +82,9 @@ const SignUp = () => {
               <p>{selectedAvatarMeta.mood}</p>
             </div>
           </div>
-
-          <div className="auth-steps">
-            {copy.auth.signup.steps.map((step) => (
-              <div key={step.title} className="auth-step">
-                <strong>{step.title}</strong>
-                <span>{step.copy}</span>
-              </div>
-            ))}
-          </div>
         </section>
 
-        <section className="auth-card">
+        <section className="auth-card animate-fade-in-delay">
           {loading ? (
             <div className="auth-loading-state">
               <CircularProgress />
@@ -116,9 +94,7 @@ const SignUp = () => {
             <>
               <div className="auth-card-header">
                 <div>
-                  <span className="auth-card-label">
-                    {copy.auth.signup.cardLabel}
-                  </span>
+                  <span className="auth-card-label">{copy.auth.signup.cardLabel}</span>
                   <h2>{copy.auth.signup.cardTitle}</h2>
                 </div>
                 <p>
@@ -137,26 +113,14 @@ const SignUp = () => {
                     <button
                       type="button"
                       key={avatar.id}
-                      className={`auth-avatar-option ${
-                        selectedAvatar === avatar.id ? "selected" : ""
-                      }`}
+                      className={`auth-avatar-option ${selectedAvatar === avatar.id ? "selected" : ""}`}
                       onClick={() => selectAvatar(avatar.id)}
                     >
-                      <div className="auth-avatar-option-topline">
-                        <span className="auth-avatar-series">{avatar.series}</span>
-                        {selectedAvatar === avatar.id && (
-                          <span className="auth-avatar-status">Selected</span>
-                        )}
-                      </div>
                       <div className="auth-avatar-portrait">
-                        <img
-                          src={buildAvatarUrl(avatar.id, avatar.id, 112)}
-                          alt={avatar.name}
-                        />
+                        <img src={buildAvatarUrl(avatar.id, avatar.id, 112)} alt={avatar.name} />
                       </div>
                       <div className="auth-avatar-copy">
                         <strong>{avatar.name}</strong>
-                        <span>{avatar.mood}</span>
                       </div>
                     </button>
                   ))}
@@ -171,16 +135,11 @@ const SignUp = () => {
                     placeholder={copy.auth.signup.usernamePlaceholder}
                     {...register("username", {
                       required: copy.auth.validation.usernameRequired,
-                      minLength: {
-                        value: 3,
-                        message: copy.auth.validation.usernameLength,
-                      },
+                      minLength: { value: 3, message: copy.auth.validation.usernameLength },
                     })}
                     onKeyUp={() => trigger("username")}
                   />
-                  {errors.username && (
-                    <span className="auth-field-error">{errors.username.message}</span>
-                  )}
+                  {errors.username && <span className="auth-field-error">{errors.username.message}</span>}
                 </div>
 
                 <div className="auth-field-group">
@@ -192,22 +151,15 @@ const SignUp = () => {
                     placeholder={copy.auth.signup.passwordPlaceholder}
                     {...register("password", {
                       required: copy.auth.validation.passwordRequired,
-                      minLength: {
-                        value: 8,
-                        message: copy.auth.validation.passwordLength,
-                      },
+                      minLength: { value: 8, message: copy.auth.validation.passwordLength },
                     })}
                     onKeyUp={() => trigger("password")}
                   />
-                  {errors.password && (
-                    <span className="auth-field-error">{errors.password.message}</span>
-                  )}
+                  {errors.password && <span className="auth-field-error">{errors.password.message}</span>}
                 </div>
 
                 <div className="auth-field-group">
-                  <label htmlFor="signup-confirm-password">
-                    {copy.auth.signup.confirmPassword}
-                  </label>
+                  <label htmlFor="signup-confirm-password">{copy.auth.signup.confirmPassword}</label>
                   <input
                     id="signup-confirm-password"
                     type="password"
@@ -215,17 +167,11 @@ const SignUp = () => {
                     placeholder={copy.auth.signup.confirmPasswordPlaceholder}
                     {...register("confirmPassword", {
                       required: copy.auth.validation.confirmRequired,
-                      validate: (value) =>
-                        value === passwordValue ||
-                        copy.auth.validation.passwordsMatch,
+                      validate: (value) => value === passwordValue || copy.auth.validation.passwordsMatch,
                     })}
                     onKeyUp={() => trigger("confirmPassword")}
                   />
-                  {errors.confirmPassword && (
-                    <span className="auth-field-error">
-                      {errors.confirmPassword.message}
-                    </span>
-                  )}
+                  {errors.confirmPassword && <span className="auth-field-error">{errors.confirmPassword.message}</span>}
                 </div>
 
                 {formError && <div className="auth-form-error">{formError}</div>}
@@ -243,4 +189,3 @@ const SignUp = () => {
 };
 
 export default SignUp;
-

@@ -26,35 +26,86 @@
   --footer-surface: rgba(8, 15, 28, 0.7);
   --orbit-glow: rgba(116, 194, 255, 0.42);
   --robot-tint: rgba(255, 255, 255, 0.08);
+
+  /* Telegram-style chat variables (dark) */
+  --telegram-bg: #0e1621;
+  --telegram-text: #f5f5f5;
+  --telegram-muted: #7f91a4;
+  --telegram-muted-strong: #8fa4b8;
+  --telegram-border: rgba(255, 255, 255, 0.06);
+  --telegram-accent: #74c2ff;
+  --telegram-accent-2: #5c83ff;
+  --telegram-bubble-own: #2b5278;
+  --telegram-bubble-other: #182533;
+  --telegram-online: #4ade80;
+  --telegram-offline: #6b7280;
+  --telegram-surface: rgba(255, 255, 255, 0.04);
+  --telegram-radius-lg: 20px;
+  --telegram-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --page-text: #142641;
-  --page-muted: #61738f;
-  --page-muted-strong: #41566f;
-  --page-border: rgba(120, 146, 190, 0.2);
-  --page-border-strong: rgba(92, 131, 255, 0.28);
-  --page-surface: rgba(255, 255, 255, 0.62);
-  --page-surface-strong: rgba(255, 255, 255, 0.84);
-  --page-surface-soft: rgba(255, 255, 255, 0.54);
-  --page-shadow: 0 28px 80px rgba(76, 97, 142, 0.18);
-  --accent-primary: #3778ff;
-  --accent-secondary: #835cff;
-  --accent-soft: rgba(55, 120, 255, 0.14);
-  --accent-strong-soft: rgba(131, 92, 255, 0.14);
+  /* Solarized Light color palette */
+  --page-text: #586e75;
+  --page-muted: #93a1a1;
+  --page-muted-strong: #657b83;
+  --page-border: rgba(101, 123, 131, 0.2);
+  --page-border-strong: rgba(101, 123, 131, 0.35);
+  --page-surface: rgba(253, 246, 227, 0.85);
+  --page-surface-strong: rgba(238, 232, 213, 0.95);
+  --page-surface-soft: rgba(253, 246, 227, 0.6);
+  --page-shadow: 0 8px 32px rgba(101, 123, 131, 0.12);
+
+  /* Text colors for light mode (override theme.css dark defaults) */
+  --text-primary: #586e75;
+  --text-secondary: #657b83;
+  --text-tertiary: #93a1a1;
+  --text-quaternary: rgba(101, 123, 131, 0.5);
+
+  /* Glass morphism for light mode */
+  --glass-bg: rgba(238, 232, 213, 0.7);
+  --glass-border: rgba(101, 123, 131, 0.15);
+  --glass-hover: rgba(101, 123, 131, 0.1);
+
+  /* Shadows for light mode */
+  --shadow-sm: 0 2px 8px rgba(101, 123, 131, 0.1);
+  --shadow-md: 0 4px 16px rgba(101, 123, 131, 0.15);
+  --shadow-lg: 0 8px 24px rgba(101, 123, 131, 0.18);
+  --shadow-xl: 0 12px 32px rgba(101, 123, 131, 0.2);
+
+  --accent-primary: #268bd2;
+  --accent-secondary: #2aa198;
+  --accent-soft: rgba(38, 139, 210, 0.12);
+  --accent-strong-soft: rgba(42, 161, 152, 0.12);
   --app-gradient:
-    radial-gradient(circle at top left, rgba(105, 149, 255, 0.22), transparent 30%),
-    radial-gradient(circle at 82% 12%, rgba(119, 226, 255, 0.2), transparent 24%),
-    radial-gradient(circle at bottom right, rgba(255, 178, 126, 0.18), transparent 24%),
-    linear-gradient(140deg, #eef6ff 0%, #fdfcff 45%, #eef2ff 100%);
-  --nav-surface: rgba(255, 255, 255, 0.68);
-  --nav-text: #13243f;
-  --nav-text-muted: rgba(40, 58, 84, 0.72);
-  --card-highlight: rgba(255, 255, 255, 0.72);
-  --footer-surface: rgba(255, 255, 255, 0.58);
-  --orbit-glow: rgba(55, 120, 255, 0.24);
-  --robot-tint: rgba(255, 255, 255, 0.42);
+    radial-gradient(circle at top left, rgba(38, 139, 210, 0.08), transparent 30%),
+    radial-gradient(circle at 82% 12%, rgba(42, 161, 152, 0.06), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(181, 137, 0, 0.06), transparent 24%),
+    linear-gradient(140deg, #fdf6e3 0%, #eee8d5 50%, #fdf6e3 100%);
+  --nav-surface: rgba(238, 232, 213, 0.88);
+  --nav-text: #586e75;
+  --nav-text-muted: rgba(101, 123, 131, 0.7);
+  --card-highlight: rgba(253, 246, 227, 0.6);
+  --footer-surface: rgba(238, 232, 213, 0.7);
+  --orbit-glow: rgba(38, 139, 210, 0.2);
+  --robot-tint: rgba(238, 232, 213, 0.5);
+
+  /* Telegram-style chat variables (solarized light) */
+  --telegram-bg: #eee8d5;
+  --telegram-text: #586e75;
+  --telegram-muted: #93a1a1;
+  --telegram-muted-strong: #657b83;
+  --telegram-border: rgba(101, 123, 131, 0.18);
+  --telegram-accent: #268bd2;
+  --telegram-accent-2: #2aa198;
+  --telegram-bubble-own: #268bd2;
+  --telegram-bubble-other: #fdf6e3;
+  --telegram-online: #859900;
+  --telegram-offline: #93a1a1;
+  --telegram-surface: rgba(101, 123, 131, 0.06);
+  --telegram-radius-lg: 20px;
+  --telegram-shadow: 0 4px 16px rgba(101, 123, 131, 0.1);
 }
 
 * {

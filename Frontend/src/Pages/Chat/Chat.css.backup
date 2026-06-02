@@ -1,101 +1,72 @@
-/* ============================================================
-   CHAT UI — Premium 2025 Messaging Design System
-   Inspired by: Discord, Telegram, Linear, Arc Browser, iMessage
-   Dark Mode First · Glassmorphism · Elegant · Minimalist
-   ============================================================ */
+/* ===== CHAT PAGE PREMIUM LAYOUT ===== */
 
-/* ---- Font Imports ---- */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-/* ---- Design Tokens ---- */
-.chat-ui {
-  --chat-bg-deep: #070B14;
-  --chat-bg-nav: #0B1220;
-  --chat-bg-surface: #111827;
-  --chat-bg-elevated: rgba(255,255,255,0.04);
-  --chat-bg-glass: rgba(255,255,255,0.04);
-  --chat-bg-glass-hover: rgba(255,255,255,0.08);
-  --chat-bg-glass-active: rgba(255,255,255,0.10);
-  --chat-accent: #6366F1;
-  --chat-accent-light: #818CF8;
-  --chat-accent-dark: #4F46E5;
-  --chat-accent-gradient: linear-gradient(135deg, #6366F1, #4F46E5);
-  --chat-accent-glow: rgba(99,102,241,0.25);
-  --chat-accent-soft: rgba(99,102,241,0.12);
-  --chat-accent-border: rgba(99,102,241,0.25);
-  --chat-bubble-own: linear-gradient(135deg, #60A5FA, #6366F1);
-  --chat-bubble-other: rgba(255,255,255,0.05);
-  --chat-bubble-other-border: rgba(255,255,255,0.06);
-  --chat-bubble-radius: 20px;
-  --chat-bubble-shadow: 0 8px 20px rgba(99,102,241,0.25);
-  --chat-text-primary: #F1F5F9;
-  --chat-text-secondary: #94A3B8;
-  --chat-text-muted: #64748B;
-  --chat-text-accent: #A5B4FC;
-  --chat-border-subtle: rgba(255,255,255,0.06);
-  --chat-border-medium: rgba(255,255,255,0.08);
-  --chat-border-strong: rgba(255,255,255,0.12);
-  --chat-online: #22C55E;
-  --chat-away: #F59E0B;
-  --chat-offline: #64748B;
-  --chat-online-glow: 0 0 12px #22C55E;
-  --chat-sidebar-width: 300px;
-  --chat-context-width: 320px;
-  --chat-topbar-height: 72px;
-  --chat-font: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
-  --chat-transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-  --chat-shadow-md: 0 4px 20px rgba(0,0,0,0.4);
-  --chat-shadow-lg: 0 8px 40px rgba(0,0,0,0.5);
-}
-
-/* ---- Base Chat Page ---- */
 .chat-page {
-  font-family: var(--chat-font);
-  background: var(--chat-bg-deep);
-  color: var(--chat-text-primary);
-  min-height: 100vh;
-  min-height: 100dvh;
-  position: relative;
+  display: flex;
+  height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   overflow: hidden;
-}
-
-.chat-page {
-  min-height: 100vh;
-  min-height: 100dvh;
-  position: relative;
-  background: transparent;
-  color: var(--telegram-text);
 }
 
 .chat-page::before {
   content: "";
-  position: absolute;
-  inset: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background:
-    radial-gradient(circle at top left, rgba(42, 171, 238, 0.18), transparent 26%),
-    radial-gradient(circle at bottom right, rgba(91, 196, 255, 0.12), transparent 24%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 18%);
+    radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.08), transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.06), transparent 50%);
   pointer-events: none;
+  z-index: 0;
 }
 
-.chat-shell {
+/* ===== MAIN CONTAINER ===== */
+
+.chat-container {
+  position: relative;
+  z-index: 1;
   display: flex;
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: 14px;
-  gap: 14px;
-  align-items: stretch;
+  width: 100%;
+  height: 100%;
+  gap: 1px;
 }
+
+/* ===== SIDEBAR ===== */
 
 .chat-sidebar {
-  width: min(var(--telegram-sidebar-width), 100%);
-  flex: 0 0 var(--telegram-sidebar-width);
-  background: var(--telegram-panel);
-  border: 1px solid var(--telegram-border);
-  border-radius: var(--telegram-radius-lg);
-  box-shadow: var(--telegram-shadow);
-  backdrop-filter: blur(24px);
+  position: relative;
+  width: 320px;
+  height: 100%;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(11, 18, 32, 0.8), rgba(7, 11, 20, 0.95));
+  backdrop-filter: blur(10px);
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+
+  @media (max-width: 1024px) {
+    width: 280px;
+  }
+
+  @media (max-width: 768px) {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg-secondary);
+    z-index: var(--z-floating);
+    transform: translateX(-100%);
+    transition: transform var(--transition-base);
+
+    &.open {
+      transform: translateX(0);
+      box-shadow: 2px 0 24px rgba(0, 0, 0, 0.4);
+    }
+  }
 }
 
 .sidebar-shell {

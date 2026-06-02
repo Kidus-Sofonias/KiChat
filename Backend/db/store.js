@@ -491,7 +491,7 @@ const initializeProvider = async () => {
   // No database configuration – abort with a clear error
   if (!hasDatabaseConfig()) {
     const err = new Error(
-      "Database configuration missing. Please set DATABASE_URL and related environment variables."
+      "Database configuration missing. Please set DATABASE_URL or POSTGRES/MYSQL environment variables."
     );
     err.code = "DB_CONFIG_MISSING";
     throw err;
@@ -517,7 +517,7 @@ const initializeProvider = async () => {
     } catch (error) {
       const isLastAttempt = attempt === maxDatabaseInitAttempts;
       if (isLastAttempt) {
-        // Propagate a clear, user‑friendly error instead of silently falling back
+        // Propagate a clear, user‑friendly error
         const friendly = new Error(
           `Unable to connect to the database after ${maxDatabaseInitAttempts} attempts: ${error.message}`
         );

@@ -37,10 +37,12 @@ function App() {
 
   const checkUser = useCallback(async () => {
     try {
+      console.log("[checkUser] Checking authentication status...");
       const { data } = await axios.get("/api/users/check", {
         withCredentials: true,
       });
 
+      console.log("[checkUser] Auth check successful:", data.user_name);
       const authenticatedUser = {
         user_name: data.user_name,
         user_id: data.user_id,
@@ -55,8 +57,15 @@ function App() {
 
       setUser(authenticatedUser);
     } catch (error) {
-      console.error("Auth error:", error);
-      logOut();
+      console.error("[checkUser] Auth error:", error.response?.status, error.response?.data);
+      // Only log out if the error is specifically an authentication error (401)
+      // For other errors (network, server), keep the token so user can retry
+      if (error.response?.status === 401) {
+        console.log("[checkUser] Token invalid, logging out");
+        logOut();
+      } else {
+        console.log("[checkUser] Non-auth error, keeping token for retry");
+      }
     } finally {
       setIsCheckingAuth(false);
     }

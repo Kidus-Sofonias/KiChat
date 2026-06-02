@@ -436,6 +436,8 @@ const Chat = ({ logOut, browserSupport }) => {
   const [mobileSidebarSection, setMobileSidebarSection] = useState("recent");
   const [replyingTo, setReplyingTo] = useState(null);
   const [hoveredMessageId, setHoveredMessageId] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [editInput, setEditInput] = useState("");
   const [browserState, setBrowserState] = useState({
     open: false,
     url: "",
@@ -810,11 +812,7 @@ const Chat = ({ logOut, browserSupport }) => {
     if (!user?.user_name) return;
 
     const updateLastSeen = () => {
-      navigator.sendBeacon?.(
-        `${API_URL}/api/users/last-seen`,
-        new Blob([JSON.stringify({})], { type: "application/json" })
-      );
-      // Also try a regular fetch with keepalive
+      // Use fetch with keepalive instead of sendBeacon (sendBeacon doesn't support custom headers)
       fetch(`${API_URL}/api/users/last-seen`, {
         method: "POST",
         headers: {
@@ -1015,6 +1013,37 @@ const Chat = ({ logOut, browserSupport }) => {
   const handleReply = (message) => {
     setReplyingTo(message);
     textareaRef.current?.focus();
+  };
+
+  const handleEditMessage = (message) => {
+    setEditingMessage(message);
+    setEditInput(message.content);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingMessage || !editInput.trim()) return;
+    const messageId = getMessageId(editingMessage);
+    if (!messageId) return;
+
+    try {
+      const response = await axios.put(`/api/messages/${messageId}`, { content: editInput.trim() });
+      const updatedMessage = normalizeMessage(response.data);
+      setMessages((currentMessages) =>
+        currentMessages.map((msg) =>
+          String(getMessageId(msg)) === String(messageId) ? updatedMessage : msg
+        )
+      );
+      setEditingMessage(null);
+      setEditInput("");
+    } catch (error) {
+      console.error("Failed to edit message:", error);
+      setComposerNotice(error.response?.data?.error || "Failed to edit message");
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessage(null);
+    setEditInput("");
   };
 
   const handleReactToMessage = async (message, emoji) => {
@@ -1527,7 +1556,7 @@ const Chat = ({ logOut, browserSupport }) => {
       )}
 
       <div className="chat-shell">
-        <aside className="chat-sidebar d-none d-lg-flex">
+        <aside className="chat-sidebar">
           <UserSidebar
             currentUser={user}
             onSelectUser={setSelectedUser}
@@ -1615,15 +1644,17 @@ const Chat = ({ logOut, browserSupport }) => {
 
             <div className="chat-topbar-right">
               <div className="chat-current-user">
-                <img
-                  src={getAvatarUrl(user?.avatar_seed, user?.user_name)}
-                  alt={`${user?.user_name} avatar`}
-                  className="chat-current-user-avatar"
-                />
+                <div className="chat-current-user-avatar-wrapper">
+                  <img
+                    src={getAvatarUrl(user?.avatar_seed, user?.user_name)}
+                    alt={`${user?.user_name} avatar`}
+                    className="chat-current-user-avatar"
+                  />
+                  <span className="online-indicator" title="Online"></span>
+                </div>
                 <div>
                   <strong>{user?.user_name}</strong>
                   <span>
-                    {copy.chat.online} ·{" "}
                     {theme === "dark"
                       ? copy.chat.themeStatusDark
                       : copy.chat.themeStatusLight}
@@ -1687,54 +1718,78 @@ const Chat = ({ logOut, browserSupport }) => {
                     ) : null}
 
                     <div
-                      className={`message-bubble ${
-                        message.sender === user.user_name ? "own-bubble" : "other-bubble"
-                      } ${startsGroup ? "group-start" : ""} ${
-                        endsGroup ? "group-end" : ""
+                      className={`message-wrapper ${
+                        message.sender === user.user_name ? "own-message" : "other-message"
                       }`}
-                      style={{ position: "relative" }}
                     >
-                      {message.sender === user.user_name && (
-                        <button
-                          type="button"
-                          className="message-delete-button"
-                          onClick={() => handleDeleteMessage(message)}
-                          disabled={deletingMessageId === String(getMessageId(message))}
-                          aria-label={copy.chat.deleteMessage || "Delete message"}
-                          title={copy.chat.deleteMessage || "Delete message"}
-                        >
-                          <FaTrash />
-                        </button>
-                      )}
-
+                      {/* Instagram-style action bar - appears on hover at bottom of bubble */}
                       {hoveredMessageId === getMessageId(message) && (
                         <MessageActions
                           message={message}
                           onReply={handleReply}
                           onReact={(emoji) => handleReactToMessage(message, emoji)}
-                          userReacted={(message.reactions || {})[Object.keys(message.reactions || {})[0]] || []}
+                          onDelete={handleDeleteMessage}
+                          onEdit={handleEditMessage}
+                          isOwnMessage={message.sender === user.user_name}
+                          isVisible={true}
                         />
                       )}
 
-                      {message.replyTo && message.replyToContent && (
-                        <div className="message-reply-context">
-                          <strong>{message.replyToSender}</strong>
-                          <p>{message.replyToContent}</p>
-                        </div>
-                      )}
+                      <div
+                        className={`message-bubble ${
+                          message.sender === user.user_name ? "own-bubble" : "other-bubble"
+                        } ${startsGroup ? "group-start" : ""} ${
+                          endsGroup ? "group-end" : ""
+                        } ${editingMessage && getMessageId(editingMessage) === getMessageId(message) ? 'editing' : ''}`}
+                      >
+                        {editingMessage && getMessageId(editingMessage) === getMessageId(message) ? (
+                          <div className="edit-message-ui">
+                            <textarea
+                              className="edit-message-input"
+                              value={editInput}
+                              onChange={(e) => setEditInput(e.target.value)}
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleSaveEdit();
+                                }
+                                if (e.key === 'Escape') {
+                                  handleCancelEdit();
+                                }
+                              }}
+                            />
+                            <div className="edit-message-actions">
+                              <button className="edit-cancel-btn" onClick={handleCancelEdit}>Cancel</button>
+                              <button className="edit-save-btn" onClick={handleSaveEdit}>Save</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {message.replyTo && message.replyToContent && (
+                              <div className="message-reply-context">
+                                <strong>{message.replyToSender}</strong>
+                                <p>{message.replyToContent}</p>
+                              </div>
+                            )}
 
-                      {message.sender !== user.user_name && startsGroup && (
-                        <div className="message-sender">{message.sender}</div>
-                      )}
-                      {renderMessageBody(message)}
-                      
-                      <EmojiReactions
-                        reactions={message.reactions}
-                        onReactionClick={(emoji) => handleReactToMessage(message, emoji)}
-                      />
+                            {message.sender !== user.user_name && startsGroup && (
+                              <div className="message-sender">{message.sender}</div>
+                            )}
+                            {renderMessageBody(message)}
+                            
+                            {/* Reactions shown inline below message content - Instagram style */}
+                            <EmojiReactions
+                              reactions={message.reactions}
+                              onReactionClick={(emoji) => handleReactToMessage(message, emoji)}
+                            />
 
-                      <div className="message-meta">
-                        <span>{formatBubbleTime(message.createdAt)}</span>
+                            <div className="message-meta">
+                              <span>{formatBubbleTime(message.createdAt)}</span>
+                              {message.editedAt && <span className="edited-label">edited</span>}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </article>

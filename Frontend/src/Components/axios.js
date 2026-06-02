@@ -13,13 +13,17 @@ const apiBaseUrl = normalizeUrl(import.meta.env.VITE_API_URL || defaultApiBaseUr
 const instance = axios.create({
   baseURL: apiBaseUrl,
   withCredentials: true,
-  timeout: 30000,
+  timeout: 60000,
 });
 
 instance.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
-  if (token) {
+  if (token && token.trim() !== "") {
     config.headers.Authorization = `Bearer ${token}`;
+  } else if (!token) {
+    console.warn("[Axios Interceptor] No token found in localStorage for request:", config.url);
+  } else if (token.trim() === "") {
+    console.warn("[Axios Interceptor] Token is empty string in localStorage for request:", config.url);
   }
   return config;
 });

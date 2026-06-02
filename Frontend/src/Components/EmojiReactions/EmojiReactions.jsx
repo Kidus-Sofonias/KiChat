@@ -5,19 +5,25 @@ const EmojiReactions = ({ reactions = {}, onReactionClick }) => {
     return null;
   }
 
+  const reactionEntries = Object.entries(reactions).filter(
+    ([, users]) => users && users.length > 0
+  );
+
+  if (reactionEntries.length === 0) {
+    return null;
+  }
+
   return (
     <div className="emoji-reactions-container">
-      {Object.entries(reactions).map(([emoji, users]) => {
-        if (!users || users.length === 0) return null;
-
+      {reactionEntries.map(([emoji, users]) => {
         const userList = users.join(", ");
-        const displayCount = users.length > 1 ? `+${users.length}` : "";
+        const isOwnReaction = users.length > 0;
 
         return (
           <button
             key={emoji}
             type="button"
-            className="emoji-reaction-badge"
+            className={`emoji-reaction-badge ${isOwnReaction ? 'own-reaction' : ''}`}
             title={userList}
             onClick={() => onReactionClick?.(emoji)}
           >

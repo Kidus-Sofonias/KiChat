@@ -7,7 +7,8 @@ function authMiddleware(req, res, next) {
 
   // ✅ Check for missing or badly formatted headers
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    console.error("Authentication denied: No token provided");
+    console.error("[AuthMiddleware] Authentication denied: No token provided for", req.method, req.path);
+    console.error("[AuthMiddleware] Auth header:", authHeader ? `"${authHeader.substring(0, 20)}..."` : "missing");
     return res
       .status(StatusCodes.UNAUTHORIZED)
       .json({ message: "Authentication denied. No token provided." });
@@ -21,11 +22,13 @@ function authMiddleware(req, res, next) {
     req.user = decoded; // Attach user info from token
     
     // Update last seen timestamp for active user
-    store.updateUser(decoded.user_id, { last_seen: new Date() });
+    store.updateUser(decoded.user_id, { last_seen: new Date() }).catch(err => {
+      console.error("[AuthMiddleware] Failed to update last seen:", err.message);
+    });
     
     next();
   } catch (error) {
-    console.error("JWT verification failed:", error.message);
+    console.error("[AuthMiddleware] JWT verification failed:", error.message, "for", req.method, req.path);
 
     // ✅ Check if the error is specifically due to token expiration
     if (error.name === "TokenExpiredError") {

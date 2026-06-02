@@ -26,39 +26,25 @@ const SignIn = () => {
 
   const previewAvatar = useMemo(() => {
     const normalizedUsername = usernameValue.trim().toLowerCase();
-
-    if (!normalizedUsername) {
-      return AVATAR_OPTIONS[0];
-    }
-
+    if (!normalizedUsername) return AVATAR_OPTIONS[0];
     const characterCodeTotal = normalizedUsername
       .split("")
       .reduce((total, character) => total + character.charCodeAt(0), 0);
-
     return AVATAR_OPTIONS[characterCodeTotal % AVATAR_OPTIONS.length];
   }, [usernameValue]);
 
-  const togglePasswordVisibility = () => {
-    setPasswordVisible((currentState) => !currentState);
-  };
+  const togglePasswordVisibility = () => setPasswordVisible((s) => !s);
 
   const logIn = async (data) => {
     setLoading(true);
     setFormError("");
-
     try {
       const response = await axios.post("/api/users/login", {
         user_name: data.username.trim(),
         password: data.password,
       });
-
       const { token, user_name, user_id, avatar_seed } = response.data;
-      const authenticatedUser = {
-        user_name,
-        user_id,
-        avatar_seed: avatar_seed || "aurora-bot",
-      };
-
+      const authenticatedUser = { user_name, user_id, avatar_seed: avatar_seed || "aurora-bot" };
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(authenticatedUser));
       setUser(authenticatedUser);
@@ -69,7 +55,6 @@ const SignIn = () => {
           ? copy.auth.signin.invalidCredentials
           : error.response?.data?.msg || copy.auth.signin.genericError
       );
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -78,12 +63,12 @@ const SignIn = () => {
   return (
     <div className="auth-screen auth-screen-signin">
       <div className="auth-shell">
-        <section className="auth-hero">
+        <section className="auth-hero animate-fade-in">
           <div className="auth-kicker">{copy.auth.signin.kicker}</div>
-          <h1>{copy.auth.signin.title}</h1>
-          <p>{copy.auth.signin.description}</p>
+          <h1 className="animate-slide-up">{copy.auth.signin.title}</h1>
+          <p className="animate-slide-up-delay">{copy.auth.signin.description}</p>
 
-          <div className="auth-highlight-card">
+          <div className="auth-highlight-card animate-slide-up-delay-2">
             <img
               src={buildAvatarUrl(previewAvatar.id, previewAvatar.id, 180)}
               alt={previewAvatar.name}
@@ -92,21 +77,11 @@ const SignIn = () => {
             <div className="auth-highlight-copy">
               <span>{copy.auth.signin.previewLabel}</span>
               <strong>{previewAvatar.name}</strong>
-              <p>{copy.auth.signin.previewCopy}</p>
             </div>
-          </div>
-
-          <div className="auth-steps">
-            {copy.auth.signin.steps.map((step) => (
-              <div key={step.title} className="auth-step">
-                <strong>{step.title}</strong>
-                <span>{step.copy}</span>
-              </div>
-            ))}
           </div>
         </section>
 
-        <section className="auth-card">
+        <section className="auth-card animate-fade-in-delay">
           {loading ? (
             <div className="auth-loading-state">
               <CircularProgress />
@@ -116,9 +91,7 @@ const SignIn = () => {
             <>
               <div className="auth-card-header">
                 <div>
-                  <span className="auth-card-label">
-                    {copy.auth.signin.cardLabel}
-                  </span>
+                  <span className="auth-card-label">{copy.auth.signin.cardLabel}</span>
                   <h2>{copy.auth.signin.cardTitle}</h2>
                 </div>
                 <p>
@@ -139,16 +112,11 @@ const SignIn = () => {
                     placeholder={copy.auth.signin.usernamePlaceholder}
                     {...register("username", {
                       required: copy.auth.validation.usernameRequired,
-                      minLength: {
-                        value: 3,
-                        message: copy.auth.validation.usernameLength,
-                      },
+                      minLength: { value: 3, message: copy.auth.validation.usernameLength },
                     })}
                     onKeyUp={() => trigger("username")}
                   />
-                  {errors.username && (
-                    <span className="auth-field-error">{errors.username.message}</span>
-                  )}
+                  {errors.username && <span className="auth-field-error">{errors.username.message}</span>}
                 </div>
 
                 <div className="auth-field-group">
@@ -161,29 +129,16 @@ const SignIn = () => {
                       placeholder={copy.auth.signin.passwordPlaceholder}
                       {...register("password", {
                         required: copy.auth.validation.passwordRequired,
-                        minLength: {
-                          value: 8,
-                          message: copy.auth.validation.passwordLength,
-                        },
+                        minLength: { value: 8, message: copy.auth.validation.passwordLength },
                       })}
                       onKeyUp={() => trigger("password")}
                     />
-                    <button
-                      type="button"
-                      className="auth-password-toggle"
-                      onClick={togglePasswordVisibility}
-                    >
-                      {passwordVisible
-                        ? copy.auth.signin.hide
-                        : copy.auth.signin.show}
+                    <button type="button" className="auth-password-toggle" onClick={togglePasswordVisibility}>
+                      {passwordVisible ? copy.auth.signin.hide : copy.auth.signin.show}
                     </button>
                   </div>
-                  {errors.password && (
-                    <span className="auth-field-error">{errors.password.message}</span>
-                  )}
+                  {errors.password && <span className="auth-field-error">{errors.password.message}</span>}
                 </div>
-
-                <div className="auth-subcopy">{copy.auth.signin.localNote}</div>
 
                 {formError && <div className="auth-form-error">{formError}</div>}
 
@@ -200,4 +155,3 @@ const SignIn = () => {
 };
 
 export default SignIn;
-
