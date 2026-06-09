@@ -2,10 +2,20 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const fs = require("fs/promises");
+const fssync = require("fs");
 const path = require("path");
+const os = require("os");
+const { spawn } = require("child_process");
 const cloudinary = require("cloudinary").v2;
 require("dotenv").config();
 const store = require("../db/store");
+
+let ffmpegPath;
+try {
+  ffmpegPath = require("ffmpeg-static");
+} catch {
+  ffmpegPath = null;
+}
 
 // Cloudinary Configuration (optional – uses free tier)
 const hasCloudinaryConfig = () =>
@@ -51,15 +61,89 @@ const uploadFileLocally = async (req, file, fileName) => {
   return buildLocalFileUrl(req, fileName);
 };
 
+const convertToMp3 = (inputBuffer) => {
+  return new Promise((resolve, reject) => {
+    if (!ffmpegPath) {
+      reject(new Error("ffmpeg not available"));
+      return;
+    }
+
+    const tmpDir = os.tmpdir();
+    const id = Date.now();
+    const tmpInput = path.join(tmpDir, `kichat-in-${id}.webm`);
+    const tmpOutput = path.join(tmpDir, `kichat-out-${id}.mp3`);
+
+    console.log(`[ffmpeg] Input buffer size: ${inputBuffer.length} bytes`);
+
+    fssync.writeFile(tmpInput, inputBuffer, (writeErr) => {
+      if (writeErr) {
+        reject(writeErr);
+        return;
+      }
+
+      const ffmpeg = spawn(ffmpegPath, [
+        "-y",
+        "-f", "webm",
+        "-vn",
+        "-i", tmpInput,
+        "-acodec", "libmp3lame",
+        "-b:a", "128k",
+        "-ar", "44100",
+        "-ac", "1",
+        tmpOutput,
+      ]);
+
+      let stderr = "";
+      ffmpeg.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
+
+      ffmpeg.on("close", (code) => {
+        try { fssync.unlinkSync(tmpInput); } catch {}
+
+        if (code !== 0) {
+          try { fssync.unlinkSync(tmpOutput); } catch {}
+          reject(new Error(`ffmpeg exit ${code}: ${stderr.slice(-300)}`));
+          return;
+        }
+
+        fssync.readFile(tmpOutput, (readErr, mp3Buffer) => {
+          try { fssync.unlinkSync(tmpOutput); } catch {}
+          if (readErr) {
+            reject(readErr);
+          } else {
+            resolve(mp3Buffer);
+          }
+        });
+      });
+
+      ffmpeg.on("error", (err) => {
+        try { fssync.unlinkSync(tmpInput); } catch {}
+        reject(err);
+      });
+    });
+  });
+};
+
 const uploadFileToCloudinary = (file, fileName) => {
   return new Promise((resolve, reject) => {
+    const isImage = file.mimetype.startsWith("image/");
+    const isVideo = file.mimetype.startsWith("video/");
+
+    const uploadOptions = {
+      public_id: fileName.replace(/\.[^/.]+$/, ""),
+      format: fileName.split(".").pop() || undefined,
+    };
+
+    if (isImage) {
+      uploadOptions.resource_type = "image";
+    } else if (isVideo || file.mimetype.startsWith("audio/")) {
+      // Audio and video go through Cloudinary's media pipeline
+      uploadOptions.resource_type = "video";
+    } else {
+      uploadOptions.resource_type = "raw";
+    }
+
     const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        resource_type: file.mimetype.startsWith("video/") ? "video" : 
-                       file.mimetype.startsWith("audio/") ? "video" : "image",
-        public_id: fileName.replace(/\.[^/.]+$/, ""),
-        format: file.originalname.split(".").pop(),
-      },
+      uploadOptions,
       (error, result) => {
         if (error) {
           reject(error);
@@ -108,10 +192,26 @@ router.post("/file", upload.single("file"), async (req, res) => {
     const fileName = `${Date.now()}-${sanitizeFileName(file.originalname)}`;
     let fileUrl;
 
-    // Try Cloudinary first (free tier), fall back to local storage
+    // Convert audio to mp3 before uploading to Cloudinary
+    let uploadFile = file;
+    let uploadFileName = fileName;
+    const isAudio = file.mimetype.startsWith("audio/");
+
+    if (isAudio && !file.mimetype.includes("mpeg")) {
+      try {
+        const mp3Buffer = await convertToMp3(file.buffer);
+        uploadFile = { ...file, buffer: mp3Buffer, mimetype: "audio/mpeg" };
+        uploadFileName = fileName.replace(/\.[^.]+$/, ".mp3");
+        console.log("Converted audio to MP3");
+      } catch (err) {
+        console.warn("MP3 conversion failed, uploading original:", err.message);
+      }
+    }
+
+    // Try Cloudinary first, fall back to local storage
     if (hasCloudinaryConfig()) {
       try {
-        fileUrl = await uploadFileToCloudinary(file, fileName);
+        fileUrl = await uploadFileToCloudinary(uploadFile, uploadFileName);
         console.log("Uploaded to Cloudinary:", fileUrl);
       } catch (error) {
         console.warn(
@@ -130,7 +230,7 @@ router.post("/file", upload.single("file"), async (req, res) => {
       receiver,
       content: caption ? `${caption}\nfile:${fileUrl}` : `file:${fileUrl}`,
       isFile: true,
-      fileType: file.mimetype,
+      fileType: uploadFile.mimetype,
       fileUrl,
       caption,
     });
@@ -146,6 +246,5 @@ router.post("/file", upload.single("file"), async (req, res) => {
     });
   }
 });
-
 
 module.exports = router;

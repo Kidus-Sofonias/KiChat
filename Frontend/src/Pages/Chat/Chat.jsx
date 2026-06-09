@@ -1149,6 +1149,7 @@ const Chat = ({ logOut, browserSupport }) => {
   };
 
   const startRecording = async () => {
+    console.log("[recording] startRecording called");
     if (!selectedUser?.user_name) {
       setComposerNotice(copy.chat.chooseChatRecording);
       return;
@@ -1187,6 +1188,7 @@ const Chat = ({ logOut, browserSupport }) => {
       setRecordingSeconds(0);
 
       recorder.ondataavailable = (event) => {
+        console.log(`[recording] ondataavailable: ${event.data.size} bytes, total chunks: ${recordingChunksRef.current.length + 1}`);
         if (event.data.size > 0) {
           recordingChunksRef.current.push(event.data);
         }
@@ -1202,14 +1204,28 @@ const Chat = ({ logOut, browserSupport }) => {
         const blob = new Blob(recordingChunksRef.current, {
           type: recorder.mimeType || "audio/webm",
         });
+
+        console.log(`[recording] Blob size: ${blob.size} bytes, chunks: ${recordingChunksRef.current.length}`);
+
+        if (blob.size < 100) {
+          stopRecordingTimer();
+          stopRecordingStream();
+          setIsRecording(false);
+          setRecordingSeconds(0);
+          setComposerNotice("Recording too short, try again");
+          return;
+        }
+
         const extension = blob.type.includes("ogg")
           ? "ogg"
           : blob.type.includes("mp4")
             ? "m4a"
             : "webm";
-        const voiceNote = new File([blob], `voice-note-${Date.now()}.${extension}`, {
-          type: blob.type || "audio/webm",
-        });
+        const voiceNote = new File(
+          [blob],
+          `voice-note-${Date.now()}.${extension}`,
+          { type: blob.type || "audio/webm" }
+        );
 
         stopRecordingTimer();
         stopRecordingStream();
@@ -1224,20 +1240,26 @@ const Chat = ({ logOut, browserSupport }) => {
         setComposerNotice(copy.chat.recordingFailed);
       };
 
-      recorder.start();
+      recorder.start(1000);
       recordingTimerRef.current = setInterval(
         () => setRecordingSeconds((current) => current + 1),
         1000
       );
     } catch (error) {
+      console.error("startRecording failed:", error?.name, error?.message, error);
       cancelRecording();
-      setComposerNotice(
-        error.name === "NotAllowedError"
-          ? copy.chat.micDenied
-          : error.message === "MediaRecorderUnavailable"
-            ? copy.chat.recordingUnsupported
-          : copy.chat.recordingFailed
-      );
+
+      let notice = copy.chat.recordingFailed;
+      if (error?.name === "NotAllowedError" || error?.name === "PermissionDeniedError") {
+        notice = copy.chat.micDenied;
+      } else if (error?.name === "NotFoundError") {
+        notice = "No microphone found";
+      } else if (error?.name === "NotReadableError" || error?.name === "TrackStartError") {
+        notice = "Microphone is in use by another app";
+      } else if (error?.message === "MediaRecorderUnavailable") {
+        notice = copy.chat.recordingUnsupported;
+      }
+      setComposerNotice(notice);
     }
   };
 
@@ -1492,6 +1514,9 @@ const Chat = ({ logOut, browserSupport }) => {
   const supportsFileUpload =
     browserSupport?.supportsFormData !== false &&
     browserSupport?.supportsFileReader !== false;
+
+  console.log("[chat] browserSupport:", JSON.stringify(browserSupport));
+  console.log("[chat] supportsVoiceRecording:", supportsVoiceRecording, "mediaDevices:", !!navigator.mediaDevices, "MediaRecorder:", typeof window.MediaRecorder);
 
   return (
     <div className="chat-page">

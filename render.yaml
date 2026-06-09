@@ -40,6 +40,13 @@ services:
         value: "3"
       - key: DB_INIT_RETRY_DELAY_MS
         value: "1000"
+      # Set these in the Render dashboard (Settings → Environment) with your Cloudinary credentials
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
 
   - type: web
     name: kichat-web
