@@ -24,6 +24,28 @@ const uploadsDirectory = path.join(__dirname, "uploads");
 fs.mkdirSync(uploadsDirectory, { recursive: true });
 app.set("trust proxy", 1);
 
+// ─── Startup Configuration Checks ─────────────────────────────────────────────
+const hasCloudinaryConfig = () =>
+  ["CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"].every(
+    (key) => Boolean(process.env[key])
+  );
+
+if (!hasCloudinaryConfig()) {
+  console.warn(
+    "\n⚠️  CLOUDINARY NOT CONFIGURED — File uploads will use LOCAL STORAGE.\n" +
+    "   On Render's free tier, the local filesystem is EPHEMERAL and files will\n" +
+    "   be LOST every time the server restarts (after ~15 min of inactivity).\n" +
+    "   Images and files will DISAPPEAR after a short while.\n\n" +
+    "   To fix this, add these 3 environment variables in your Render dashboard:\n" +
+    "   - CLOUDINARY_CLOUD_NAME\n" +
+    "   - CLOUDINARY_API_KEY\n" +
+    "   - CLOUDINARY_API_SECRET\n\n" +
+    "   Get your credentials from: https://cloudinary.com/console\n" +
+    "───────────────────────────────────────────────\n"
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Fix #14: Security headers via helmet
 // Configured to allow Cloudinary images and our own CDN in the CSP
 const helmet = require("helmet");
@@ -224,7 +246,17 @@ app.get("/", (req, res) => {
 app.get("/api/health", async (req, res) => {
   try {
     const storage = await store.getStorageStatus();
-    res.json({ status: "ok", storage });
+    res.json({
+      status: "ok",
+      storage,
+      cloudinary: {
+        configured: hasCloudinaryConfig(),
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME || null,
+        warning: !hasCloudinaryConfig()
+          ? "Cloudinary not configured. File uploads will use local storage. On Render free tier, local files are lost on restart."
+          : null,
+      },
+    });
   } catch (error) {
     res.status(500).json({
       status: "error",
@@ -233,6 +265,13 @@ app.get("/api/health", async (req, res) => {
         configured: db.isConfigured,
         databaseDialect: db.databaseDialect,
         databaseLabel: db.databaseLabel,
+      },
+      cloudinary: {
+        configured: hasCloudinaryConfig(),
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME || null,
+        warning: !hasCloudinaryConfig()
+          ? "Cloudinary not configured. File uploads will use local storage. On Render free tier, local files are lost on restart."
+          : null,
       },
     });
   }

@@ -40,7 +40,19 @@ services:
         value: "3"
       - key: DB_INIT_RETRY_DELAY_MS
         value: "1000"
-      # Set these in the Render dashboard (Settings → Environment) with your Cloudinary credentials
+      # ⚠️  CRITICAL: These must be set in the Render Dashboard for file uploads to work!
+      # Without Cloudinary, files are stored locally on Render's EPHEMERAL filesystem
+      # and will be LOST on every server restart (after ~15 min of inactivity).
+      #
+      # MANUAL STEP REQUIRED:
+      # 1. Go to https://dashboard.render.com → kichat-api → Environment
+      # 2. Add these 3 variables with your Cloudinary credentials:
+      #    CLOUDINARY_CLOUD_NAME = df3rkym2v
+      #    CLOUDINARY_API_KEY    = 571329382843895
+      #    CLOUDINARY_API_SECRET = 1HmN5xeKsjcLt-T9IiJte2ePAQE
+      # 3. Click "Save Changes" and redeploy
+      #
+      # Get your credentials from: https://cloudinary.com/console
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
