@@ -20,28 +20,59 @@ try {
   ffmpegPath = null;
 }
 
-// Cloudinary Configuration (optional – uses free tier)
-// Checked lazily so dotenv has already populated process.env before this runs.
+// ─── Cloudinary Configuration ─────────────────────────────────────────────────
 const hasCloudinaryConfig = () =>
   ["CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"].every(
     (key) => Boolean(process.env[key])
   );
 
 let cloudinaryConfigured = false;
-const ensureCloudinaryConfigured = () => {
-  if (cloudinaryConfigured) return;
-  if (!hasCloudinaryConfig()) return;
+let cloudinaryConfigError = null;
 
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
-  cloudinaryConfigured = true;
-  console.log("[cloudinary] SDK configured with cloud:", process.env.CLOUDINARY_CLOUD_NAME);
+const getCloudinaryDiagnostics = () => {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "(not set)";
+  const hasApiKey = Boolean(process.env.CLOUDINARY_API_KEY);
+  const hasApiSecret = Boolean(process.env.CLOUDINARY_API_SECRET);
+  
+  return {
+    configured: cloudinaryConfigured,
+    hasAllEnvVars: hasCloudinaryConfig(),
+    cloudNameSentinel: cloudName === "(not set)" ? "(not set)" : `${cloudName.substring(0, 3)}***`,
+    hasApiKey,
+    hasApiSecret,
+    configError: cloudinaryConfigError,
+  };
 };
 
-// Allowed MIME types – add to this list whenever you want to support a new type
+const ensureCloudinaryConfigured = () => {
+  if (cloudinaryConfigured) return true;
+  if (!hasCloudinaryConfig()) {
+    cloudinaryConfigError = "Missing environment variables";
+    console.error("[cloudinary] Cannot configure: missing env vars", getCloudinaryDiagnostics());
+    return false;
+  }
+
+  try {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+    cloudinaryConfigured = true;
+    cloudinaryConfigError = null;
+    console.log("[cloudinary] SDK configured with cloud:", process.env.CLOUDINARY_CLOUD_NAME);
+    return true;
+  } catch (err) {
+    cloudinaryConfigError = err.message;
+    console.error("[cloudinary] Configuration failed:", err.message);
+    return false;
+  }
+};
+
+// Expose diagnostics for the health endpoint
+router.getCloudinaryDiagnostics = getCloudinaryDiagnostics;
+
+// ─── Allowed MIME types ──────────────────────────────────────────────────────
 const ALLOWED_MIME_TYPES = new Set([
   // Images
   "image/jpeg",
@@ -185,7 +216,13 @@ const convertToMp3 = (inputBuffer) => {
 };
 
 const uploadFileToCloudinary = (file, fileName) => {
-  ensureCloudinaryConfigured();
+  const configured = ensureCloudinaryConfigured();
+  
+  if (!configured) {
+    const diag = getCloudinaryDiagnostics();
+    console.error("[cloudinary] Upload attempted but not configured:", JSON.stringify(diag));
+    return Promise.reject(new Error(`Cloudinary not configured: ${JSON.stringify(diag)}`));
+  }
 
   return new Promise((resolve, reject) => {
     const isImage = file.mimetype.startsWith("image/");
@@ -197,7 +234,6 @@ const uploadFileToCloudinary = (file, fileName) => {
 
     const uploadOptions = {
       public_id: `kichat/${baseName}`,
-      // Don't force a format – let Cloudinary keep the original extension
     };
 
     if (isImage) {
@@ -208,14 +244,21 @@ const uploadFileToCloudinary = (file, fileName) => {
       uploadOptions.resource_type = "raw";
     }
 
+    console.log(`[cloudinary] Starting upload as ${uploadOptions.resource_type}...`);
+    console.log(`[cloudinary] File size: ${file.buffer.length} bytes, MIME: ${file.mimetype}`);
+
     const uploadStream = cloudinary.uploader.upload_stream(
       uploadOptions,
       (error, result) => {
         if (error) {
-          console.error("[cloudinary] Upload error:", error.message, error.http_code);
+          console.error("[cloudinary] Upload error:", {
+            message: error.message,
+            http_code: error.http_code,
+            name: error.name,
+          });
           reject(error);
         } else {
-          console.log("[cloudinary] Uploaded:", result.secure_url);
+          console.log("[cloudinary] Upload SUCCESS:", result.secure_url);
           resolve(result.secure_url);
         }
       }
@@ -226,12 +269,10 @@ const uploadFileToCloudinary = (file, fileName) => {
 };
 
 // ─── Local uploads cleanup ───────────────────────────────────────────────────
-// Deletes files in the local uploads directory that are older than MAX_AGE_MS.
-// Only runs when Cloudinary is not configured.
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 const runUploadsCleanup = async () => {
-  if (hasCloudinaryConfig()) return; // Cloudinary manages its own retention
+  if (hasCloudinaryConfig()) return;
 
   try {
     const files = await fs.readdir(uploadsDirectory);
@@ -261,7 +302,6 @@ const runUploadsCleanup = async () => {
   }
 };
 
-// Run once on startup, then every 24 hours
 runUploadsCleanup();
 setInterval(runUploadsCleanup, 24 * 60 * 60 * 1000);
 // ─────────────────────────────────────────────────────────────────────────────
@@ -288,10 +328,9 @@ router.get("/recent/:username", getRecentUsers);
 router.post("/reply", replyToMessage);
 router.post("/:messageId/reaction/add", addReaction);
 router.post("/:messageId/reaction/remove", removeReaction);
-// FIX: edit message route was missing
 router.put("/:messageId", editMessage);
 
-// Multer error handler – catches file-type rejections and size-limit errors
+// Multer error handler
 const handleUploadError = (err, req, res, next) => {
   if (err) {
     if (err.code === "UNSUPPORTED_FILE_TYPE") {
@@ -311,10 +350,7 @@ router.post("/file", upload.single("file"), handleUploadError, async (req, res) 
     const { caption = "" } = req.body;
     const file = req.file;
 
-    // Fix #13: Derive sender from the verified JWT — never trust the client body for identity
     const sender = req.user?.user_name;
-    // receiver still comes from body (the client knows who they're sending to),
-    // but we validate it's a non-empty string
     const receiver = req.body.receiver?.trim();
 
     if (!sender) {
@@ -329,7 +365,6 @@ router.post("/file", upload.single("file"), handleUploadError, async (req, res) 
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    // Fix #5: Validate caption length to prevent oversized payloads
     if (caption.length > 2000) {
       return res.status(400).json({ error: "Caption must be 2000 characters or fewer" });
     }
@@ -353,18 +388,20 @@ router.post("/file", upload.single("file"), handleUploadError, async (req, res) 
       }
     }
 
+    // Log Cloudinary diagnostics before attempting upload
+    console.log("[file upload] Cloudinary diagnostics:", JSON.stringify(getCloudinaryDiagnostics()));
+
     // Try Cloudinary first, fall back to local storage
     if (hasCloudinaryConfig()) {
       try {
         fileUrl = await uploadFileToCloudinary(uploadFile, uploadFileName);
+        console.log("[file upload] SUCCESS: uploaded to Cloudinary:", fileUrl);
       } catch (error) {
         console.warn(
           `[file upload] Cloudinary upload failed, falling back to local storage: ${error.message}`
         );
         fileUrl = await uploadFileLocally(req, file, fileName);
 
-        // Warn loudly: a local URL won't be reachable by other users
-        // unless BACKEND_PUBLIC_URL is set to a publicly accessible address.
         if (!process.env.BACKEND_PUBLIC_URL) {
           console.warn(
             "[file upload] WARNING: BACKEND_PUBLIC_URL is not set. The file URL " +
@@ -375,6 +412,7 @@ router.post("/file", upload.single("file"), handleUploadError, async (req, res) 
       }
     } else {
       console.log("[file upload] Cloudinary not configured, using local storage");
+      console.log("[file upload] Env check:", JSON.stringify(getCloudinaryDiagnostics()));
       fileUrl = await uploadFileLocally(req, file, fileName);
 
       if (!process.env.BACKEND_PUBLIC_URL) {

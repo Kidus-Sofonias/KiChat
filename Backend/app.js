@@ -277,6 +277,19 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
+// ─── Cloudinary test endpoint (no auth required) ─────────────────────────────
+app.get("/api/cloudinary-check", (req, res) => {
+  const cloudinaryDiag = messageRoutes.getCloudinaryDiagnostics
+    ? messageRoutes.getCloudinaryDiagnostics()
+    : { error: "Diagnostics not available" };
+  
+  res.json({
+    message: "Cloudinary diagnostic info - use this to verify your Render environment variables",
+    timestamp: new Date().toISOString(),
+    ...cloudinaryDiag
+  });
+});
+
 app.use("/api/users", userRoutes);
 app.use("/api/messages", jwtMiddleware, messageRoutes);
 
