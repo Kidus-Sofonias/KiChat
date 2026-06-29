@@ -62,27 +62,35 @@ const ChatHeader = ({
         </div>
 
         <div className="header-actions">
+          {/* #18: call/search/more buttons are not yet implemented — 
+              show them visually disabled so they don't mislead users */}
           <button
             className="header-icon-button"
             onClick={onCall}
-            title="Voice Call"
+            title="Voice Call (coming soon)"
             aria-label="Voice Call"
+            style={{ opacity: 0.35, cursor: "not-allowed" }}
+            disabled
           >
             <FaPhone size={16} />
           </button>
           <button
             className="header-icon-button"
             onClick={onVideoCall}
-            title="Video Call"
+            title="Video Call (coming soon)"
             aria-label="Video Call"
+            style={{ opacity: 0.35, cursor: "not-allowed" }}
+            disabled
           >
             <FaVideo size={16} />
           </button>
           <button
             className="header-icon-button"
             onClick={onSearch}
-            title="Search"
+            title="Search (coming soon)"
             aria-label="Search"
+            style={{ opacity: 0.35, cursor: "not-allowed" }}
+            disabled
           >
             <FaSearch size={16} />
           </button>

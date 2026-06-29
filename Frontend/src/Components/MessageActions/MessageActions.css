@@ -109,7 +109,7 @@
   padding: 6px;
   box-shadow: var(--shadow-lg);
   animation: menuSlideUp 0.2s ease-out;
-  z-index: 101;
+  z-index: 200;
   min-width: 120px;
   border: 1px solid var(--page-border);
 }
@@ -161,6 +161,7 @@
 .emoji-picker-popup {
   position: absolute;
   bottom: calc(100% + 8px);
+  /* FIX #8: default center-align but clamp to viewport so it never clips */
   left: 50%;
   transform: translateX(-50%);
   background: var(--page-surface-strong);
@@ -168,8 +169,11 @@
   padding: 6px 8px;
   box-shadow: var(--shadow-lg);
   animation: emojiPickerSlideUp 0.2s ease-out;
-  z-index: 101;
+  z-index: 200;
   border: 1px solid var(--page-border);
+  /* prevent clipping on narrow screens */
+  max-width: calc(100vw - 24px);
+  white-space: nowrap;
 }
 
 @keyframes emojiPickerSlideUp {

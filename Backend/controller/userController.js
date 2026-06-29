@@ -3,6 +3,29 @@ const { StatusCodes } = require("http-status-codes");
 const jwt = require("jsonwebtoken");
 const store = require("../db/store");
 
+// Fix #9: Increased bcrypt rounds from 10 → 12 (current industry recommendation)
+const BCRYPT_ROUNDS = 12;
+
+// Fix #12: Username rules — 3–30 chars, letters/numbers/underscores/hyphens only
+const USERNAME_REGEX = /^[a-zA-Z0-9_-]{3,30}$/;
+
+// Fix #11: Password strength — min 8 chars, must contain at least one uppercase,
+// one lowercase, one digit, and one special character
+const PASSWORD_RULES = [
+  { test: (p) => p.length >= 8,            msg: "Password must be at least 8 characters" },
+  { test: (p) => /[A-Z]/.test(p),          msg: "Password must contain at least one uppercase letter" },
+  { test: (p) => /[a-z]/.test(p),          msg: "Password must contain at least one lowercase letter" },
+  { test: (p) => /[0-9]/.test(p),          msg: "Password must contain at least one number" },
+  { test: (p) => /[^a-zA-Z0-9]/.test(p),  msg: "Password must contain at least one special character" },
+];
+
+const validatePassword = (password) => {
+  for (const rule of PASSWORD_RULES) {
+    if (!rule.test(password)) return rule.msg;
+  }
+  return null;
+};
+
 async function register(req, res) {
   const { user_name, password, avatar_seed = "byte-bot" } = req.body;
 
@@ -12,22 +35,30 @@ async function register(req, res) {
       .json({ msg: "Please provide all required fields" });
   }
 
+  // Fix #12: Validate username format
+  if (!USERNAME_REGEX.test(user_name)) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      msg: "Username must be 3–30 characters and can only contain letters, numbers, underscores, or hyphens",
+    });
+  }
+
+  // Fix #11: Validate password strength
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    return res.status(StatusCodes.BAD_REQUEST).json({ msg: passwordError });
+  }
+
   try {
     const existingUser = await store.findUserByUsername(user_name);
 
     if (existingUser) {
       return res
         .status(StatusCodes.BAD_REQUEST)
-        .json({ msg: "User already registered" });
+        .json({ msg: "Username is already taken" });
     }
 
-    if (password.length < 8) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ msg: "Password must be at least 8 characters" });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Fix #9: bcrypt rounds bumped to 12
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
     await store.createUser({
       user_name,
@@ -58,16 +89,13 @@ async function login(req, res) {
   try {
     const user = await store.findUserByUsername(user_name);
 
-    if (!user) {
+    // Use same message for not found vs wrong password to prevent user enumeration
+    if (!user || !user.password) {
       return res
         .status(StatusCodes.UNAUTHORIZED)
         .json({ msg: "Invalid username or password" });
     }
 
-    if (!user.password) {
-      console.error('Login error: stored password missing for user', user.user_name);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ msg: 'Server error' });
-    }
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
@@ -76,13 +104,13 @@ async function login(req, res) {
         .json({ msg: "Invalid username or password" });
     }
 
-    // Update last seen timestamp
+    // Update last seen on login
     await store.updateUser(user.user_id, { last_seen: new Date() });
 
     const token = jwt.sign(
       { user_id: user.user_id, user_name: user.user_name },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "7d" }
     );
 
     return res.status(StatusCodes.OK).json({
@@ -104,9 +132,6 @@ async function checkUser(req, res) {
   const { user_id } = req.user;
 
   try {
-    // Update last seen timestamp
-    await store.updateUser(user_id, { last_seen: new Date() });
-    
     const user = await store.findUserById(user_id);
 
     if (!user) {
@@ -142,6 +167,31 @@ async function getAllUsers(req, res) {
   }
 }
 
+// Fix #19: Dedicated lightweight endpoint for last_seen — used by the 15s frontend poll.
+// Only touches the last_seen column instead of loading the full user list each time.
+async function getUserStatus(req, res) {
+  const { username } = req.params;
+
+  try {
+    const user = await store.findUserByUsername(username);
+
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({ msg: "User not found" });
+    }
+
+    return res.status(StatusCodes.OK).json({
+      user_name: user.user_name,
+      last_seen: user.last_seen,
+      avatar_seed: user.avatar_seed,
+    });
+  } catch (error) {
+    console.error("GetUserStatus error:", error.message, error.stack);
+    return res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ msg: "Failed to get user status" });
+  }
+}
+
 async function updateLastSeen(req, res) {
   const { user_id } = req.user;
 
@@ -161,5 +211,6 @@ module.exports = {
   login,
   checkUser,
   getAllUsers,
+  getUserStatus,
   updateLastSeen,
 };

@@ -13,10 +13,30 @@ const emitMessageToUsers = (app, message) => {
 };
 
 const createMessage = async (req, res) => {
-  const { sender, receiver, content } = req.body;
+  const { receiver, content } = req.body;
+
+  // Fix #13: Derive sender from the JWT — never trust the client body for identity
+  const sender = req.user?.user_name;
+
+  if (!sender) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  if (!receiver?.trim()) {
+    return res.status(400).json({ error: "receiver is required" });
+  }
+
+  // Fix #5: Validate content — non-empty, max 10,000 characters
+  if (!content || typeof content !== "string" || !content.trim()) {
+    return res.status(400).json({ error: "Message content cannot be empty" });
+  }
+
+  if (content.length > 10000) {
+    return res.status(400).json({ error: "Message content must be 10,000 characters or fewer" });
+  }
 
   try {
-    const message = await store.createMessage({ sender, receiver, content });
+    const message = await store.createMessage({ sender, receiver: receiver.trim(), content: content.trim() });
     emitMessageToUsers(req.app, message);
     res.status(201).json(message);
   } catch (error) {
@@ -95,10 +115,25 @@ const deleteMessage = async (req, res) => {
 };
 
 const replyToMessage = async (req, res) => {
-  const { sender, receiver, content, replyTo } = req.body;
+  const { receiver, content, replyTo } = req.body;
+
+  // Fix #13: Derive sender from JWT
+  const sender = req.user?.user_name;
+
+  if (!sender) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 
   if (!replyTo) {
     return res.status(400).json({ error: "replyTo message ID is required" });
+  }
+
+  if (!content || typeof content !== "string" || !content.trim()) {
+    return res.status(400).json({ error: "Message content cannot be empty" });
+  }
+
+  if (content.length > 10000) {
+    return res.status(400).json({ error: "Message content must be 10,000 characters or fewer" });
   }
 
   try {
@@ -171,6 +206,47 @@ const removeReaction = async (req, res) => {
   }
 };
 
+const editMessage = async (req, res) => {
+  const { messageId } = req.params;
+  const { content } = req.body;
+  const currentUsername = req.user?.user_name;
+
+  if (!messageId) {
+    return res.status(400).json({ error: "messageId is required" });
+  }
+
+  if (!content || typeof content !== "string" || !content.trim()) {
+    return res.status(400).json({ error: "Message content cannot be empty" });
+  }
+
+  if (content.length > 10000) {
+    return res.status(400).json({ error: "Message content must be 10,000 characters or fewer" });
+  }
+
+  try {
+    const message = await store.getMessageById(messageId);
+
+    if (!message) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+
+    if (message.sender !== currentUsername) {
+      return res.status(403).json({ error: "You can only edit your own messages" });
+    }
+
+    const updatedMessage = await store.updateMessage(messageId, {
+      content: content.trim(),
+      editedAt: new Date(),
+    });
+
+    emitMessageToUsers(req.app, updatedMessage);
+    res.json(updatedMessage);
+  } catch (error) {
+    console.error("Failed to edit message:", error.message);
+    res.status(500).json({ error: "Failed to edit message" });
+  }
+};
+
 module.exports = {
   createMessage,
   deleteMessage,
@@ -180,5 +256,6 @@ module.exports = {
   replyToMessage,
   addReaction,
   removeReaction,
+  editMessage,
   emitMessageToUsers,
 };

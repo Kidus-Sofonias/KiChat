@@ -150,12 +150,19 @@ const Sidebar = ({
           {onlineUsers.length === 0 ? (
             <p className="empty-state-text">No users online</p>
           ) : (
-            onlineUsers.slice(0, 8).map((userId) => (
-              <div key={userId} className="online-user-item">
-                <FaCircle size={8} className="status-dot status-online" />
-                <span>{userId}</span>
-              </div>
-            ))
+            onlineUsers.slice(0, 8).map((userId) => {
+              // FIX #13: find the matching conversation participant to get display name
+              const matchedUser = conversations
+                .flatMap((c) => c.participants)
+                .find((p) => p.user_id === userId);
+              const displayName = matchedUser?.user_name || userId;
+              return (
+                <div key={userId} className="online-user-item">
+                  <FaCircle size={8} className="status-dot status-online" />
+                  <span>{displayName}</span>
+                </div>
+              );
+            })
           )}
         </div>
       </div>

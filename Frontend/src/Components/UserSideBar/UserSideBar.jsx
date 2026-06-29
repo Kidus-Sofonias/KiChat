@@ -18,6 +18,7 @@ const UserSidebar = ({
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [tick, setTick] = useState(0);
+  const [usersLoading, setUsersLoading] = useState(true); // FIX #22: skeleton loading
   const { copy } = usePreferences();
 
   const fetchUsers = () => {
@@ -28,8 +29,14 @@ const UserSidebar = ({
 
     axios
       .get("/api/users/all")
-      .then((res) => setUsers(res.data))
-      .catch((error) => console.error("Failed to fetch users:", error));
+      .then((res) => {
+        setUsers(res.data);
+        setUsersLoading(false); // FIX #22
+      })
+      .catch((error) => {
+        console.error("Failed to fetch users:", error);
+        setUsersLoading(false);
+      });
   };
 
   // Initial fetch + periodic polling for updated last_seen values
@@ -217,7 +224,14 @@ const UserSidebar = ({
             <small>{recentEntries.length}</small>
           </div>
 
-          {recentEntries.length > 0 ? (
+          {/* FIX #22: skeleton loading */}
+          {usersLoading ? (
+            <div className="sidebar-user-list">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="sidebar-skeleton-card" />
+              ))}
+            </div>
+          ) : recentEntries.length > 0 ? (
             <div className="sidebar-user-list">
               {recentEntries.map((user) =>
                 renderUserButton(user, copy.sidebar.recentChat)
@@ -238,7 +252,14 @@ const UserSidebar = ({
             <small>{discoverEntries.length}</small>
           </div>
 
-          {discoverEntries.length > 0 ? (
+          {/* FIX #22: skeleton loading */}
+          {usersLoading ? (
+            <div className="sidebar-user-list">
+              {[1, 2, 3, 4].map((n) => (
+                <div key={n} className="sidebar-skeleton-card" />
+              ))}
+            </div>
+          ) : discoverEntries.length > 0 ? (
             <div className="sidebar-user-list">
               {discoverEntries.map((user) =>
                 renderUserButton(

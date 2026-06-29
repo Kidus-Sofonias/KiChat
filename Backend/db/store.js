@@ -122,6 +122,7 @@ const localProvider = {
       password,
       avatar_seed,
       last_seen: new Date().toISOString(),
+      push_subscription: null,
     };
 
     store.users.push(user);
@@ -304,6 +305,24 @@ const localProvider = {
 
     return message;
   },
+
+  async updateMessage(messageId, updates) {
+    const store = await readLocalStore();
+    const index = store.messages.findIndex(
+      (msg) => String(msg._id) === String(messageId)
+    );
+
+    if (index < 0) return null;
+
+    store.messages[index] = {
+      ...store.messages[index],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await writeLocalStore(store);
+    return store.messages[index];
+  },
 };
 
 const sequelizeProvider = {
@@ -485,6 +504,13 @@ const sequelizeProvider = {
 
     return toPlainObject(message);
   },
+
+  async updateMessage(messageId, updates) {
+    const message = await Message.findByPk(messageId);
+    if (!message) return null;
+    await message.update(updates);
+    return toPlainObject(message);
+  },
 };
 
 const initializeProvider = async () => {
@@ -558,6 +584,7 @@ module.exports = {
   getMessageById: (...args) => callProvider("getMessageById", ...args),
   addReaction: (...args) => callProvider("addReaction", ...args),
   removeReaction: (...args) => callProvider("removeReaction", ...args),
+  updateMessage: (...args) => callProvider("updateMessage", ...args),
   // Added export for updateUser to fix login error
   updateUser: (...args) => callProvider("updateUser", ...args),
   getStorageStatus: async () => {

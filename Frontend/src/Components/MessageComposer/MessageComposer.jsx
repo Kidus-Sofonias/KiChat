@@ -4,19 +4,33 @@ import {
   FaSmile,
   FaPaperclip,
   FaMicrophone,
+  FaStop,
   FaTimes,
 } from "react-icons/fa";
 import "./MessageComposer.css";
 
+/**
+ * MessageComposer – dumb UI component for the message input bar.
+ *
+ * Voice recording is intentionally NOT handled here.
+ * The parent (Chat.jsx) owns the MediaRecorder lifecycle and passes:
+ *   - onVoiceStart  – called when the mic button is pressed to begin recording
+ *   - onVoiceStop   – called when the stop button is pressed to finish recording
+ *   - isRecording   – whether recording is currently active (controls button state)
+ *
+ * This keeps the component easy to test and reuse without pulling in browser APIs.
+ */
 const MessageComposer = ({
   onSendMessage,
   onAttach,
   onEmoji,
+  onVoiceStart,
+  onVoiceStop,
+  isRecording = false,
   disabled = false,
   placeholder = "Message...",
 }) => {
   const [message, setMessage] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -46,10 +60,16 @@ const MessageComposer = ({
     if (files && onAttach) {
       onAttach(files);
     }
+    // Reset input so the same file can be re-selected
+    e.currentTarget.value = "";
   };
 
   const handleVoiceClick = () => {
-    setIsRecording(!isRecording);
+    if (isRecording) {
+      onVoiceStop?.();
+    } else {
+      onVoiceStart?.();
+    }
   };
 
   const handleEmojiClick = () => {
@@ -76,7 +96,7 @@ const MessageComposer = ({
             onClick={handleAttachClick}
             title="Attach file"
             aria-label="Attach file"
-            disabled={disabled}
+            disabled={disabled || isRecording}
           >
             <FaPaperclip size={18} />
           </button>
@@ -119,30 +139,18 @@ const MessageComposer = ({
                 isRecording ? "recording" : ""
               }`}
               onClick={handleVoiceClick}
-              title="Voice message"
-              aria-label="Send voice message"
+              title={isRecording ? "Stop recording" : "Voice message"}
+              aria-label={isRecording ? "Stop recording" : "Send voice message"}
               disabled={disabled}
             >
-              <FaMicrophone size={16} />
+              {isRecording ? <FaStop size={16} /> : <FaMicrophone size={16} />}
             </button>
           )}
         </div>
       </div>
-
-      {isRecording && (
-        <div className="recording-indicator">
-          <div className="recording-pulse"></div>
-          <span>Recording...</span>
-          <button
-            className="stop-recording-btn"
-            onClick={() => setIsRecording(false)}
-          >
-            <FaTimes size={14} />
-          </button>
-        </div>
-      )}
     </div>
   );
 };
 
 export default MessageComposer;
+

@@ -35,6 +35,7 @@ import { formatLastSeen, isOnline } from "../../Utils/formatLastSeen";
 import MessageActions from "../../Components/MessageActions/MessageActions";
 import ReplyQuote from "../../Components/ReplyQuote/ReplyQuote";
 import EmojiReactions from "../../Components/EmojiReactions/EmojiReactions";
+import { useVoiceRecorder } from "../../hooks/useVoiceRecorder";
 import "./Chat.css";
 
 const urlBase64ToUint8Array = (base64String) => {
@@ -425,14 +426,13 @@ const Chat = ({ logOut, browserSupport }) => {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0); // 0-100, only active during file upload
   const [selectedUser, setSelectedUser] = useState(null);
   const [recentUsers, setRecentUsers] = useState([]);
   const [lightboxIndex, setLightboxIndex] = useState(-1);
   const [lightboxImages, setLightboxImages] = useState([]);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [composerNotice, setComposerNotice] = useState("");
-  const [deletingMessageId, setDeletingMessageId] = useState("");
+  // isRecording and recordingSeconds come from useVoiceRecorder hook below
+  const [composerNotice, setComposerNotice] = useState("");  const [deletingMessageId, setDeletingMessageId] = useState("");
   const [mobileSidebarSection, setMobileSidebarSection] = useState("recent");
   const [replyingTo, setReplyingTo] = useState(null);
   const [hoveredMessageId, setHoveredMessageId] = useState(null);
@@ -444,6 +444,13 @@ const Chat = ({ logOut, browserSupport }) => {
     title: "",
   });
   const [selectedUserLastSeen, setSelectedUserLastSeen] = useState(null);
+  // FIX #11: typing indicator state
+  const [partnerIsTyping, setPartnerIsTyping] = useState(false);
+  // FIX #16: scroll-to-bottom button
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  // FIX #20: track first unread message ID so we can show a divider
+  const firstUnreadIdRef = useRef(null);
+  const prevMessageCountRef = useRef(0);
   const messagesRef = useRef(null);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
@@ -451,11 +458,10 @@ const Chat = ({ logOut, browserSupport }) => {
   const socketConnectedRef = useRef(false);
   const recentOutgoingSignaturesRef = useRef(new Set());
   const selectedUserRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const recordingStreamRef = useRef(null);
-  const recordingTimerRef = useRef(null);
-  const recordingChunksRef = useRef([]);
   const previewUrlRef = useRef(null);
+  // FIX #11: typing indicator refs
+  const typingTimeoutRef = useRef(null);
+  const isTypingRef = useRef(false);
 
   const selectedUserAvatar = useMemo(
     () =>
@@ -501,17 +507,20 @@ const Chat = ({ logOut, browserSupport }) => {
     }
   };
 
-  const stopRecordingTimer = () => {
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
-  };
-
-  const stopRecordingStream = () => {
-    recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
-    recordingStreamRef.current = null;
-  };
+  // Fix #16: Voice recorder extracted into useVoiceRecorder hook
+  const {
+    isRecording,
+    recordingSeconds,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+  } = useVoiceRecorder({
+    onFile: (voiceFile) => {
+      setFile(voiceFile);
+      setPreviewFromFile(voiceFile);
+    },
+    onError: (msg) => setComposerNotice(msg),
+  });
 
   const clearAttachment = () => {
     cleanupPreviewUrl();
@@ -548,25 +557,6 @@ const Chat = ({ logOut, browserSupport }) => {
     });
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current?.state && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-      return;
-    }
-
-    cancelRecording();
-  };
-
-  const cancelRecording = () => {
-    setIsRecording(false);
-    setRecordingSeconds(0);
-    setComposerNotice("");
-    stopRecordingTimer();
-    stopRecordingStream();
-    mediaRecorderRef.current = null;
-    recordingChunksRef.current = [];
-  };
-
   useEffect(() => {
     selectedUserRef.current = selectedUser;
   }, [selectedUser]);
@@ -582,6 +572,10 @@ const Chat = ({ logOut, browserSupport }) => {
   useEffect(() => {
     if (selectedUser) {
       setMobileSidebarSection("recent");
+      setPartnerIsTyping(false); // FIX #11: clear typing when switching conversations
+      isTypingRef.current = false;
+      clearTimeout(typingTimeoutRef.current);
+      firstUnreadIdRef.current = null; // FIX #20: clear unread divider
     }
   }, [selectedUser]);
 
@@ -669,7 +663,45 @@ const Chat = ({ logOut, browserSupport }) => {
     return () => timers.forEach(clearTimeout);
   }, [selectedUser?.user_name]);
 
-  // Handle phone/device back button to return to user list
+  // FIX #16: detect when user has scrolled up so we show the scroll-to-bottom button
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      setShowScrollBtn(distanceFromBottom > 150);
+    };
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [selectedUser?.user_name]);
+
+  const scrollToBottom = () => {
+    if (messagesRef.current) {
+      messagesRef.current.scrollTo({ top: messagesRef.current.scrollHeight, behavior: "smooth" });
+      setShowScrollBtn(false);
+      firstUnreadIdRef.current = null; // FIX #20: clear unread marker
+    }
+  };
+
+  // FIX #11: emit typing / stop_typing via socket
+  const emitTyping = () => {
+    if (!socketRef.current || !selectedUserRef.current?.user_name) return;
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      socketRef.current.emit("typing", {
+        sender: user.user_name,
+        receiver: selectedUserRef.current.user_name,
+      });
+    }
+    clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      socketRef.current?.emit("stop_typing", {
+        sender: user.user_name,
+        receiver: selectedUserRef.current.user_name,
+      });
+    }, 2000);
+  };
   useEffect(() => {
     if (!selectedUser?.user_name) return;
     // Push a history entry so the phone's back button can go back to the user list
@@ -702,20 +734,32 @@ const Chat = ({ logOut, browserSupport }) => {
     const socket = io(SOCKET_URL, {
       auth: {
         token: localStorage.getItem("token"),
-        username: user.user_name,
       },
-      transports: ["polling"],
+      // Fix #17: Let Socket.IO negotiate WebSocket first (its default).
+      // Removed forced polling — WebSocket is lower latency and uses far less server resources.
     });
 
     socketRef.current = socket;
 
     socket.on("connect", () => {
       socketConnectedRef.current = true;
-      socket.emit("join", user.user_name);
     });
 
     socket.on("disconnect", () => {
       socketConnectedRef.current = false;
+    });
+
+    // FIX #11: listen for typing events from the other user
+    socket.on("typing", ({ sender }) => {
+      if (sender !== user.user_name && sender === selectedUserRef.current?.user_name) {
+        setPartnerIsTyping(true);
+      }
+    });
+
+    socket.on("stop_typing", ({ sender }) => {
+      if (sender !== user.user_name) {
+        setPartnerIsTyping(false);
+      }
     });
 
     socket.on("receive_message", (incomingMessage) => {
@@ -749,54 +793,78 @@ const Chat = ({ logOut, browserSupport }) => {
         return;
       }
 
-      setMessages((currentMessages) =>
-        appendMessage(currentMessages, normalizedMessage)
-      );
+      // FIX #1: If the message already exists (same ID), replace it instead of
+      // ignoring it — this ensures reaction updates and edits from the other
+      // user propagate in real-time via the socket.
+      setMessages((currentMessages) => {
+        const incomingId = getMessageId(normalizedMessage);
+        if (incomingId) {
+          const existsAtIndex = currentMessages.findIndex(
+            (m) => String(getMessageId(m)) === String(incomingId)
+          );
+          if (existsAtIndex >= 0) {
+            const updated = [...currentMessages];
+            updated[existsAtIndex] = normalizedMessage;
+            return updated;
+          }
+        }
+        // FIX #20: if user scrolled up and this is a new incoming message,
+        // mark it as the first unread so we can show the divider
+        if (
+          normalizedMessage.sender !== user.user_name &&
+          !firstUnreadIdRef.current
+        ) {
+          const el = messagesRef.current;
+          const isScrolledUp = el
+            ? el.scrollHeight - el.scrollTop - el.clientHeight > 150
+            : false;
+          if (isScrolledUp) {
+            firstUnreadIdRef.current = getMessageId(normalizedMessage) || null;
+          }
+        }
+        return appendMessage(currentMessages, normalizedMessage);
+      });
     });
 
     return () => {
       socketConnectedRef.current = false;
       socket.off("receive_message");
       socket.off("disconnect");
+      socket.off("typing");
+      socket.off("stop_typing");
       socket.disconnect();
       socketRef.current = null;
     };
   }, [user?.user_name]);
 
-  // Fetch selected user's last_seen and poll for updates
+  // Fix #19: Poll only the selected user's status instead of loading all users every 15s.
+  // Uses the new lightweight GET /api/users/:username/status endpoint.
   useEffect(() => {
     if (!selectedUser?.user_name) {
       setSelectedUserLastSeen(null);
       return;
     }
 
-    const fetchLastSeen = () => {
+    const fetchStatus = () => {
       axios
-        .get("/api/users/all")
+        .get(`/api/users/${selectedUser.user_name}/status`)
         .then((res) => {
-          const found = res.data.find(
-            (u) => u.user_name === selectedUser.user_name
+          setSelectedUserLastSeen(res.data.last_seen);
+          setSelectedUser((prev) =>
+            prev && prev.user_name === res.data.user_name
+              ? {
+                  ...prev,
+                  avatar_seed: res.data.avatar_seed,
+                  last_seen: res.data.last_seen,
+                }
+              : prev
           );
-          if (found) {
-            setSelectedUserLastSeen(found.last_seen);
-            // Also update the selectedUser object so it includes the real avatar seed
-            setSelectedUser((prev) =>
-              prev && prev.user_name === found.user_name
-                ? {
-                    ...prev,
-                    user_id: found.user_id,
-                    avatar_seed: found.avatar_seed,
-                    last_seen: found.last_seen,
-                  }
-                : prev
-            );
-          }
         })
         .catch(() => {});
     };
 
-    fetchLastSeen();
-    const interval = setInterval(fetchLastSeen, 15_000);
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 15_000);
     return () => clearInterval(interval);
   }, [selectedUser?.user_name]);
 
@@ -864,14 +932,9 @@ const Chat = ({ logOut, browserSupport }) => {
           });
         }
 
-        // Send subscription to server
-        await fetch(`${API_URL}/api/push/subscribe`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: user.user_name,
-            subscription: subscription.toJSON(),
-          }),
+        // Send subscription to server — use axios so the JWT token is auto-attached
+        await axios.post("/api/push/subscribe", {
+          subscription: subscription.toJSON(),
         });
       } catch (error) {
         console.error("Push subscription failed:", error);
@@ -884,9 +947,9 @@ const Chat = ({ logOut, browserSupport }) => {
   useEffect(
     () => () => {
       cleanupPreviewUrl();
-      stopRecordingTimer();
-      stopRecordingStream();
+      cancelRecording();
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -946,8 +1009,15 @@ const Chat = ({ logOut, browserSupport }) => {
 
         const response = await axios.post("/api/messages/file", formData, {
           headers: { "Content-Type": "multipart/form-data" },
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const pct = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              setUploadProgress(pct);
+            }
+          },
         });
 
+        setUploadProgress(0);
         sentMessage = normalizeMessage(response.data);
       } else {
         const response = await axios.post("/api/messages", {
@@ -971,6 +1041,7 @@ const Chat = ({ logOut, browserSupport }) => {
       );
       resetComposer();
     } catch (error) {
+      setUploadProgress(0);
       setComposerNotice(
         error.message === "File uploads are not supported in this browser."
           ? error.message
@@ -1109,8 +1180,15 @@ const Chat = ({ logOut, browserSupport }) => {
 
         const response = await axios.post("/api/messages/file", formData, {
           headers: { "Content-Type": "multipart/form-data" },
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const pct = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              setUploadProgress(pct);
+            }
+          },
         });
 
+        setUploadProgress(0);
         sentMessage = normalizeMessage(response.data);
       } else {
         const response = await axios.post("/api/messages/reply", {
@@ -1135,6 +1213,7 @@ const Chat = ({ logOut, browserSupport }) => {
       );
       resetComposer();
     } catch (error) {
+      setUploadProgress(0);
       setComposerNotice(
         error.message === "File uploads are not supported in this browser."
           ? error.message
@@ -1148,119 +1227,20 @@ const Chat = ({ logOut, browserSupport }) => {
     }
   };
 
-  const startRecording = async () => {
-    console.log("[recording] startRecording called");
+  // Fix #16: startRecording now delegates to useVoiceRecorder hook.
+  // Only chat-specific guards live here (no conversation selected, browser check).
+  const handleStartRecording = () => {
     if (!selectedUser?.user_name) {
       setComposerNotice(copy.chat.chooseChatRecording);
       return;
     }
-
     if (!supportsVoiceRecording) {
       setComposerNotice(copy.chat.recordingUnsupported);
       return;
     }
-
-    try {
-      clearAttachment();
-      setComposerNotice("");
-
-      if (typeof window.MediaRecorder === "undefined") {
-        throw new Error("MediaRecorderUnavailable");
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeTypeCandidates = [
-        "audio/webm;codecs=opus",
-        "audio/webm",
-        "audio/ogg;codecs=opus",
-      ];
-      const supportedMimeType = mimeTypeCandidates.find((mimeType) =>
-        MediaRecorder.isTypeSupported?.(mimeType)
-      );
-      const recorder = supportedMimeType
-        ? new MediaRecorder(stream, { mimeType: supportedMimeType })
-        : new MediaRecorder(stream);
-
-      recordingStreamRef.current = stream;
-      mediaRecorderRef.current = recorder;
-      recordingChunksRef.current = [];
-      setIsRecording(true);
-      setRecordingSeconds(0);
-
-      recorder.ondataavailable = (event) => {
-        console.log(`[recording] ondataavailable: ${event.data.size} bytes, total chunks: ${recordingChunksRef.current.length + 1}`);
-        if (event.data.size > 0) {
-          recordingChunksRef.current.push(event.data);
-        }
-      };
-
-      recorder.onstop = () => {
-        if (!recordingChunksRef.current.length) {
-          cancelRecording();
-          setComposerNotice(copy.chat.recordingFailed);
-          return;
-        }
-
-        const blob = new Blob(recordingChunksRef.current, {
-          type: recorder.mimeType || "audio/webm",
-        });
-
-        console.log(`[recording] Blob size: ${blob.size} bytes, chunks: ${recordingChunksRef.current.length}`);
-
-        if (blob.size < 100) {
-          stopRecordingTimer();
-          stopRecordingStream();
-          setIsRecording(false);
-          setRecordingSeconds(0);
-          setComposerNotice("Recording too short, try again");
-          return;
-        }
-
-        const extension = blob.type.includes("ogg")
-          ? "ogg"
-          : blob.type.includes("mp4")
-            ? "m4a"
-            : "webm";
-        const voiceNote = new File(
-          [blob],
-          `voice-note-${Date.now()}.${extension}`,
-          { type: blob.type || "audio/webm" }
-        );
-
-        stopRecordingTimer();
-        stopRecordingStream();
-        setIsRecording(false);
-        setRecordingSeconds(0);
-        setFile(voiceNote);
-        setPreviewFromFile(voiceNote);
-      };
-
-      recorder.onerror = () => {
-        cancelRecording();
-        setComposerNotice(copy.chat.recordingFailed);
-      };
-
-      recorder.start(1000);
-      recordingTimerRef.current = setInterval(
-        () => setRecordingSeconds((current) => current + 1),
-        1000
-      );
-    } catch (error) {
-      console.error("startRecording failed:", error?.name, error?.message, error);
-      cancelRecording();
-
-      let notice = copy.chat.recordingFailed;
-      if (error?.name === "NotAllowedError" || error?.name === "PermissionDeniedError") {
-        notice = copy.chat.micDenied;
-      } else if (error?.name === "NotFoundError") {
-        notice = "No microphone found";
-      } else if (error?.name === "NotReadableError" || error?.name === "TrackStartError") {
-        notice = "Microphone is in use by another app";
-      } else if (error?.message === "MediaRecorderUnavailable") {
-        notice = copy.chat.recordingUnsupported;
-      }
-      setComposerNotice(notice);
-    }
+    clearAttachment();
+    setComposerNotice("");
+    startRecording();
   };
 
   const renderLinkedText = (text) => {
@@ -1711,10 +1691,22 @@ const Chat = ({ logOut, browserSupport }) => {
 
           <div className="chat-feed" ref={messagesRef}>
             {messageTimeline.map(
-              ({ message, showDateDivider, dayLabel, startsGroup, endsGroup }, index) => (
+              ({ message, showDateDivider, dayLabel, startsGroup, endsGroup }, index) => {
+                const msgId = getMessageId(message);
+                // FIX #20: show unread divider above the first new message that
+                // arrived while the user was scrolled up
+                const showUnreadDivider =
+                  firstUnreadIdRef.current &&
+                  String(msgId) === String(firstUnreadIdRef.current);
+                return (
                 <div
-                  key={getMessageId(message) || `${message.sender}-${message.createdAt}-${index}`}
+                  key={msgId || `${message.sender}-${message.createdAt}-${index}`}
                 >
+                  {showUnreadDivider && (
+                    <div className="unread-divider">
+                      <span>New messages</span>
+                    </div>
+                  )}
                   {showDateDivider && (
                     <div className="message-day-divider">
                       <span>{dayLabel}</span>
@@ -1747,8 +1739,9 @@ const Chat = ({ logOut, browserSupport }) => {
                         message.sender === user.user_name ? "own-message" : "other-message"
                       }`}
                     >
-                      {/* Instagram-style action bar - appears on hover at bottom of bubble */}
-                      {hoveredMessageId === getMessageId(message) && (
+                      {/* FIX #2: Don't show action bar while editing — it overlaps the Save button */}
+                      {hoveredMessageId === getMessageId(message) &&
+                        !(editingMessage && getMessageId(editingMessage) === getMessageId(message)) && (
                         <MessageActions
                           message={message}
                           onReply={handleReply}
@@ -1819,11 +1812,51 @@ const Chat = ({ logOut, browserSupport }) => {
                     </div>
                   </article>
                 </div>
-              )
+                );
+              }
             )}
           </div>
 
+          {/* FIX #11: typing indicator */}
+          {partnerIsTyping && (
+            <div className="typing-indicator-row">
+              <img
+                src={getAvatarUrl(selectedUser?.avatar_seed, selectedUser?.user_name)}
+                alt=""
+                className="typing-avatar"
+              />
+              <div className="typing-bubble">
+                <span className="typing-dot" />
+                <span className="typing-dot" />
+                <span className="typing-dot" />
+              </div>
+            </div>
+          )}
+
+          {/* FIX #16: scroll-to-bottom button */}
+          {showScrollBtn && (
+            <button
+              type="button"
+              className="scroll-to-bottom-btn"
+              onClick={scrollToBottom}
+              aria-label="Scroll to latest messages"
+            >
+              ↓
+            </button>
+          )}
+
           <footer className="chat-composer">
+            {/* Upload progress bar – only visible while a file is uploading */}
+            {uploadProgress > 0 && uploadProgress < 100 && (
+              <div className="upload-progress-bar-shell" role="progressbar" aria-valuenow={uploadProgress} aria-valuemin={0} aria-valuemax={100}>
+                <div
+                  className="upload-progress-bar-fill"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+                <span className="upload-progress-label">{uploadProgress}%</span>
+              </div>
+            )}
+
             {(replyingTo || preview || composerNotice || isRecording) && (
               <div className="composer-preview-shell">
                 {replyingTo && (
@@ -1893,7 +1926,7 @@ const Chat = ({ logOut, browserSupport }) => {
               <button
                 type="button"
                 className={`chat-icon-button ${isRecording ? "recording" : ""}`}
-                onClick={isRecording ? stopRecording : startRecording}
+                onClick={isRecording ? stopRecording : handleStartRecording}
                 disabled={!selectedUser || !supportsVoiceRecording}
               >
                 {isRecording ? <FaStop /> : <FaMicrophone />}
@@ -1905,7 +1938,10 @@ const Chat = ({ logOut, browserSupport }) => {
                 ref={textareaRef}
                 className="chat-textarea"
                 value={input}
-                onChange={(event) => setInput(event.target.value)}
+                onChange={(event) => {
+                  setInput(event.target.value);
+                  emitTyping(); // FIX #11
+                }}
                 placeholder={`Message ${selectedUser.user_name}`}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {

@@ -5,11 +5,22 @@ import {
   FaEllipsisV,
   FaCheck,
   FaCheckDouble,
+  FaFileAlt,
+  FaMicrophone,
+  FaDownload,
 } from "react-icons/fa";
 import { buildAvatarUrl } from "../../Utils/avatarOptions";
 import { formatBubbleTime } from "../../Utils/formatLastSeen";
 import "./Messages.css";
 
+/**
+ * Standalone Messages component.
+ *
+ * Accepts the same message schema used throughout the app:
+ *   { id, sender, receiver, content, isFile, fileType, fileUrl, caption, reactions, createdAt }
+ *
+ * `currentUserId` should be the logged-in user's `user_name` string.
+ */
 const Messages = ({
   messages = [],
   currentUserId,
@@ -20,43 +31,116 @@ const Messages = ({
 }) => {
   const formatTime = (timestamp) => {
     if (!timestamp) return "";
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
+    return formatBubbleTime(timestamp);
+  };
+
+  const getDisplayFileName = (fileUrl = "") => {
+    const raw = fileUrl.split("/").pop()?.split("?")[0] || "attachment";
+    return decodeURIComponent(raw.replace(/^\d+-/, ""));
+  };
+
+  const getAttachmentKind = (fileType = "", fileUrl = "") => {
+    if (fileType.startsWith("image/")) return "image";
+    if (fileType.startsWith("video/")) return "video";
+    if (fileType.startsWith("audio/")) return "audio";
+    const ext = fileUrl.split("?")[0].split(".").pop()?.toLowerCase() || "";
+    if (["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(ext)) return "image";
+    if (["mp4", "webm", "mov", "m4v", "mkv"].includes(ext)) return "video";
+    if (["mp3", "wav", "ogg", "m4a", "aac"].includes(ext)) return "audio";
+    return "file";
   };
 
   const renderMessageContent = (message) => {
-    if (message.file_url) {
-      const fileName = message.file_name || "File";
+    if (!message.isFile) {
+      return <p className="message-text">{message.content}</p>;
+    }
+
+    if (!message.fileUrl) {
+      return <p className="message-text">File unavailable</p>;
+    }
+
+    const fileName = getDisplayFileName(message.fileUrl);
+    const kind = getAttachmentKind(message.fileType || "", message.fileUrl);
+
+    if (kind === "image") {
       return (
         <div className="message-file">
+          {message.caption && <p className="message-text">{message.caption}</p>}
+          <img src={message.fileUrl} alt={fileName} className="file-preview-image" />
           <a
-            href={message.file_url}
+            href={message.fileUrl}
+            download={fileName}
+            className="file-link"
             target="_blank"
             rel="noopener noreferrer"
-            className="file-link"
           >
-            📎 {fileName}
+            <FaDownload size={12} /> {fileName}
           </a>
         </div>
       );
     }
 
-    if (message.image_url) {
+    if (kind === "video") {
       return (
-        <div className="message-image">
-          <img src={message.image_url} alt="Message attachment" />
+        <div className="message-file">
+          {message.caption && <p className="message-text">{message.caption}</p>}
+          <video src={message.fileUrl} controls playsInline className="message-video" />
+          <a
+            href={message.fileUrl}
+            download={fileName}
+            className="file-link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <FaDownload size={12} /> Download video
+          </a>
         </div>
       );
     }
 
+    if (kind === "audio") {
+      return (
+        <div className="message-file">
+          {message.caption && <p className="message-text">{message.caption}</p>}
+          <div className="audio-message-card">
+            <div className="audio-message-icon">
+              <FaMicrophone />
+            </div>
+            <div className="audio-message-copy">
+              {/* FIX #15: show duration once metadata loads */}
+              <strong>{fileName}</strong>
+              <audio
+                src={message.fileUrl}
+                controls
+                onLoadedMetadata={(e) => {
+                  const dur = e.currentTarget.duration;
+                  if (dur && isFinite(dur)) {
+                    const mins = String(Math.floor(dur / 60)).padStart(2, "0");
+                    const secs = String(Math.floor(dur % 60)).padStart(2, "0");
+                    e.currentTarget.previousSibling.textContent = `${fileName} · ${mins}:${secs}`;
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Generic file
     return (
-      <p className="message-text">
-        {message.text}
-      </p>
+      <div className="message-file">
+        {message.caption && <p className="message-text">{message.caption}</p>}
+        <a
+          href={message.fileUrl}
+          download={fileName}
+          className="file-link"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <FaFileAlt size={14} /> {fileName}
+        </a>
+      </div>
     );
   };
 
@@ -79,25 +163,38 @@ const Messages = ({
       )}
 
       {messages.map((message) => {
-        const isOwn = message.sender_id === currentUserId;
+        const messageId = message._id ?? message.id ?? message.message_id;
+        // Support both username string (new schema) and numeric id (legacy schema)
+        const isOwn = message.sender === currentUserId || message.sender_id === currentUserId;
+
         return (
           <div
-            key={message.message_id}
+            key={messageId}
             className={`message-group ${isOwn ? "own" : "other"}`}
           >
-            {!isOwn && message.sender && (
+            {!isOwn && (message.sender || message.sender?.user_name) && (
               <img
-                src={buildAvatarUrl(message.sender.avatar_seed)}
-                alt={message.sender.user_name}
+                src={buildAvatarUrl(message.sender?.avatar_seed || message.sender)}
+                alt={message.sender?.user_name || message.sender}
                 className="message-avatar"
               />
             )}
 
             <div className={`message-bubble ${isOwn ? "sent" : "received"}`}>
-              {message.reply_to && (
+              {(message.replyTo || message.reply_to) && (
                 <div className="reply-quote">
                   <FaReply size={12} />
-                  <span>{message.reply_to.text}</span>
+                  {/* FIX #14: show sender name above the quoted content */}
+                  <div className="reply-quote-inner">
+                    {(message.replyToSender || message.reply_to?.sender) && (
+                      <span className="reply-quote-sender">
+                        {message.replyToSender || message.reply_to?.sender}
+                      </span>
+                    )}
+                    <span>
+                      {message.replyToContent || message.reply_to?.text || ""}
+                    </span>
+                  </div>
                 </div>
               )}
 
@@ -105,7 +202,7 @@ const Messages = ({
 
               <div className="message-meta">
                 <span className="message-time">
-                  {formatTime(message.timestamp)}
+                  {formatTime(message.createdAt || message.timestamp)}
                 </span>
                 {isOwn && (
                   <span className="read-receipt">
@@ -118,15 +215,18 @@ const Messages = ({
                 )}
               </div>
 
-              {message.reactions && message.reactions.length > 0 && (
-                <div className="message-reactions">
-                  {message.reactions.map((reaction, idx) => (
-                    <span key={idx} className="reaction-emoji">
-                      {reaction.emoji}
-                    </span>
-                  ))}
-                </div>
-              )}
+              {message.reactions &&
+                Object.keys(message.reactions).length > 0 && (
+                  <div className="message-reactions">
+                    {Object.entries(message.reactions).map(([emoji, users]) =>
+                      users.length > 0 ? (
+                        <span key={emoji} className="reaction-emoji">
+                          {emoji} {users.length > 1 ? users.length : ""}
+                        </span>
+                      ) : null
+                    )}
+                  </div>
+                )}
 
               <div className="message-actions">
                 <button
@@ -165,3 +265,4 @@ const Messages = ({
 };
 
 export default Messages;
+

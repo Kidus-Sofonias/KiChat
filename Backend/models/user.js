@@ -29,6 +29,12 @@ const User = sequelize.define(
       allowNull: true,
       defaultValue: DataTypes.NOW,
     },
+    // Fix #4: Push notification subscription stored in DB so it survives server restarts
+    push_subscription: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: null,
+    },
   },
   {
     timestamps: false, // Set to true if you want createdAt/updatedAt

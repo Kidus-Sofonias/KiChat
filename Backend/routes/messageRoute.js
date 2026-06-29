@@ -7,7 +7,10 @@ const path = require("path");
 const os = require("os");
 const { spawn } = require("child_process");
 const cloudinary = require("cloudinary").v2;
+
+// Load .env FIRST so all process.env vars are available before anything reads them
 require("dotenv").config();
+
 const store = require("../db/store");
 
 let ffmpegPath;
@@ -18,23 +21,81 @@ try {
 }
 
 // Cloudinary Configuration (optional – uses free tier)
+// Checked lazily so dotenv has already populated process.env before this runs.
 const hasCloudinaryConfig = () =>
   ["CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"].every(
     (key) => Boolean(process.env[key])
   );
 
-if (hasCloudinaryConfig()) {
+let cloudinaryConfigured = false;
+const ensureCloudinaryConfigured = () => {
+  if (cloudinaryConfigured) return;
+  if (!hasCloudinaryConfig()) return;
+
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
   });
-}
+  cloudinaryConfigured = true;
+  console.log("[cloudinary] SDK configured with cloud:", process.env.CLOUDINARY_CLOUD_NAME);
+};
+
+// Allowed MIME types – add to this list whenever you want to support a new type
+const ALLOWED_MIME_TYPES = new Set([
+  // Images
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+  // Video
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+  "video/x-matroska",
+  // Audio
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/webm",
+  "audio/ogg",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/aac",
+  // Documents
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  // Text / code
+  "text/plain",
+  "text/csv",
+  // Archives
+  "application/zip",
+  "application/x-zip-compressed",
+]);
+
+const fileFilter = (_req, file, callback) => {
+  if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
+    callback(null, true);
+  } else {
+    callback(
+      Object.assign(new Error(`File type "${file.mimetype}" is not allowed`), {
+        code: "UNSUPPORTED_FILE_TYPE",
+      }),
+      false
+    );
+  }
+};
 
 // Memory storage to handle file buffer
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
+  fileFilter,
   limits: {
     fileSize: 100 * 1024 * 1024,
   },
@@ -124,19 +185,24 @@ const convertToMp3 = (inputBuffer) => {
 };
 
 const uploadFileToCloudinary = (file, fileName) => {
+  ensureCloudinaryConfigured();
+
   return new Promise((resolve, reject) => {
     const isImage = file.mimetype.startsWith("image/");
     const isVideo = file.mimetype.startsWith("video/");
 
+    // Strip extension from fileName for public_id; use a folder prefix to
+    // avoid collisions with other assets in the same Cloudinary account.
+    const baseName = fileName.replace(/\.[^/.]+$/, "");
+
     const uploadOptions = {
-      public_id: fileName.replace(/\.[^/.]+$/, ""),
-      format: fileName.split(".").pop() || undefined,
+      public_id: `kichat/${baseName}`,
+      // Don't force a format – let Cloudinary keep the original extension
     };
 
     if (isImage) {
       uploadOptions.resource_type = "image";
     } else if (isVideo || file.mimetype.startsWith("audio/")) {
-      // Audio and video go through Cloudinary's media pipeline
       uploadOptions.resource_type = "video";
     } else {
       uploadOptions.resource_type = "raw";
@@ -146,8 +212,10 @@ const uploadFileToCloudinary = (file, fileName) => {
       uploadOptions,
       (error, result) => {
         if (error) {
+          console.error("[cloudinary] Upload error:", error.message, error.http_code);
           reject(error);
         } else {
+          console.log("[cloudinary] Uploaded:", result.secure_url);
           resolve(result.secure_url);
         }
       }
@@ -156,6 +224,47 @@ const uploadFileToCloudinary = (file, fileName) => {
     uploadStream.end(file.buffer);
   });
 };
+
+// ─── Local uploads cleanup ───────────────────────────────────────────────────
+// Deletes files in the local uploads directory that are older than MAX_AGE_MS.
+// Only runs when Cloudinary is not configured.
+const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+const runUploadsCleanup = async () => {
+  if (hasCloudinaryConfig()) return; // Cloudinary manages its own retention
+
+  try {
+    const files = await fs.readdir(uploadsDirectory);
+    const now = Date.now();
+    let removed = 0;
+
+    await Promise.all(
+      files.map(async (fileName) => {
+        const filePath = path.join(uploadsDirectory, fileName);
+        try {
+          const stats = await fs.stat(filePath);
+          if (now - stats.mtimeMs > MAX_AGE_MS) {
+            await fs.unlink(filePath);
+            removed++;
+          }
+        } catch {
+          // File may have already been removed – ignore
+        }
+      })
+    );
+
+    if (removed > 0) {
+      console.log(`[uploads cleanup] Removed ${removed} expired file(s)`);
+    }
+  } catch (err) {
+    console.warn("[uploads cleanup] Failed:", err.message);
+  }
+};
+
+// Run once on startup, then every 24 hours
+runUploadsCleanup();
+setInterval(runUploadsCleanup, 24 * 60 * 60 * 1000);
+// ─────────────────────────────────────────────────────────────────────────────
 
 const {
   createMessage,
@@ -166,6 +275,7 @@ const {
   replyToMessage,
   addReaction,
   removeReaction,
+  editMessage,
   emitMessageToUsers,
 } = require("../controller/messageController");
 
@@ -178,15 +288,50 @@ router.get("/recent/:username", getRecentUsers);
 router.post("/reply", replyToMessage);
 router.post("/:messageId/reaction/add", addReaction);
 router.post("/:messageId/reaction/remove", removeReaction);
+// FIX: edit message route was missing
+router.put("/:messageId", editMessage);
+
+// Multer error handler – catches file-type rejections and size-limit errors
+const handleUploadError = (err, req, res, next) => {
+  if (err) {
+    if (err.code === "UNSUPPORTED_FILE_TYPE") {
+      return res.status(415).json({ error: err.message });
+    }
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({ error: "File is too large. Maximum size is 100 MB." });
+    }
+    return res.status(400).json({ error: err.message || "File upload error" });
+  }
+  next();
+};
 
 // File Upload Route
-router.post("/file", upload.single("file"), async (req, res) => {
+router.post("/file", upload.single("file"), handleUploadError, async (req, res) => {
   try {
-    const { sender, receiver, caption = "" } = req.body;
+    const { caption = "" } = req.body;
     const file = req.file;
+
+    // Fix #13: Derive sender from the verified JWT — never trust the client body for identity
+    const sender = req.user?.user_name;
+    // receiver still comes from body (the client knows who they're sending to),
+    // but we validate it's a non-empty string
+    const receiver = req.body.receiver?.trim();
+
+    if (!sender) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!receiver) {
+      return res.status(400).json({ error: "receiver is required" });
+    }
 
     if (!file) {
       return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Fix #5: Validate caption length to prevent oversized payloads
+    if (caption.length > 2000) {
+      return res.status(400).json({ error: "Caption must be 2000 characters or fewer" });
     }
 
     const fileName = `${Date.now()}-${sanitizeFileName(file.originalname)}`;
@@ -212,16 +357,32 @@ router.post("/file", upload.single("file"), async (req, res) => {
     if (hasCloudinaryConfig()) {
       try {
         fileUrl = await uploadFileToCloudinary(uploadFile, uploadFileName);
-        console.log("Uploaded to Cloudinary:", fileUrl);
       } catch (error) {
         console.warn(
-          `Cloudinary upload failed, falling back to local storage: ${error.message}`
+          `[file upload] Cloudinary upload failed, falling back to local storage: ${error.message}`
         );
         fileUrl = await uploadFileLocally(req, file, fileName);
+
+        // Warn loudly: a local URL won't be reachable by other users
+        // unless BACKEND_PUBLIC_URL is set to a publicly accessible address.
+        if (!process.env.BACKEND_PUBLIC_URL) {
+          console.warn(
+            "[file upload] WARNING: BACKEND_PUBLIC_URL is not set. The file URL " +
+            `"${fileUrl}" is local and will NOT be reachable by other users. ` +
+            "Set BACKEND_PUBLIC_URL to your server's public address, or configure Cloudinary."
+          );
+        }
       }
     } else {
-      console.log("Cloudinary not configured, using local storage");
+      console.log("[file upload] Cloudinary not configured, using local storage");
       fileUrl = await uploadFileLocally(req, file, fileName);
+
+      if (!process.env.BACKEND_PUBLIC_URL) {
+        console.warn(
+          "[file upload] WARNING: BACKEND_PUBLIC_URL is not set. The file URL " +
+          `"${fileUrl}" is local and will NOT be reachable by other users.`
+        );
+      }
     }
     
     // Create message in database
